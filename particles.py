@@ -1,6 +1,7 @@
 import pygame
 from support import import_folder
 from random import choice
+from settings import *
 
 class AnimationPlayer:
 	def __init__(self):
@@ -39,31 +40,44 @@ class AnimationPlayer:
 				self.reflect_images(import_folder('../graphics/particles/leaf6'))
 				)
 			}
-	
+
+		# Load only required Tracking Frames for Farasat theme
+		self.frames['bamboo_track'] = import_folder('../graphics/particles/tracks/bamboo')
+		self.frames['raccoon_track'] = import_folder('../graphics/particles/tracks/raccoon')
+
 	def reflect_images(self,frames):
 		new_frames = []
-
 		for frame in frames:
-	 		flipped_frame = pygame.transform.flip(frame,True,False)
-	 		new_frames.append(flipped_frame)
+			flipped_surf = pygame.transform.flip(frame,True,False)
+			new_frames.append(flipped_surf)
 		return new_frames
 
 	def create_grass_particles(self,pos,groups):
-	 	animation_frames = choice(self.frames['leaf'])
-	 	ParticleEffect(pos,animation_frames,groups)
-
-	def create_particles(self,animation_type,pos,groups):
-		animation_frames = self.frames[animation_type]
+		animation_frames = choice(self.frames['leaf'])
 		ParticleEffect(pos,animation_frames,groups)
 
+	def create_particles(self,animation_type,pos,groups):
+		if animation_type in self.frames and self.frames[animation_type]:
+			animation_frames = self.frames[animation_type]
+			ParticleEffect(pos,animation_frames,groups,animation_type)
 
 class ParticleEffect(pygame.sprite.Sprite):
-	def __init__(self,pos,animation_frames,groups):
+	def __init__(self,pos,animation_frames,groups,sprite_type = 'magic'):
 		super().__init__(groups)
-		self.sprite_type = 'magic'
+		self.sprite_type = sprite_type
 		self.frame_index = 0
 		self.animation_speed = 0.15
 		self.frames = animation_frames
+		
+		# Realistic scaling and transparency for tracks
+		if 'track' in self.sprite_type:
+			self.frames = []
+			for frame in animation_frames:
+				scaled_frame = pygame.transform.scale(frame, (TILESIZE // 3, TILESIZE // 3))
+				scaled_frame.set_alpha(150) # Start semi-transparent
+				self.frames.append(scaled_frame)
+			self.animation_speed = 0.02 # Make them last longer on screen
+
 		self.image = self.frames[self.frame_index]
 		self.rect = self.image.get_rect(center = pos)
 
@@ -73,6 +87,11 @@ class ParticleEffect(pygame.sprite.Sprite):
 			self.kill()
 		else:
 			self.image = self.frames[int(self.frame_index)]
+			
+			# Perfecting the Fade: Gradually disappear
+			if 'track' in self.sprite_type:
+				alpha = 150 - (self.frame_index / len(self.frames)) * 150
+				self.image.set_alpha(int(alpha))
 
 	def update(self):
 		self.animate()

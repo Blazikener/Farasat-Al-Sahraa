@@ -4,7 +4,7 @@ from entity import Entity
 from support import *
 
 class Enemy(Entity):
-	def __init__(self,monster_name,pos,groups,obstacle_sprites,damage_player,trigger_death_particles,add_exp):
+	def __init__(self,monster_name,pos,groups,obstacle_sprites,damage_player,trigger_death_particles,add_exp,animation_player):
 
 		# general setup
 		super().__init__(groups)
@@ -39,6 +39,14 @@ class Enemy(Entity):
 		self.damage_player = damage_player
 		self.trigger_death_particles = trigger_death_particles
 		self.add_exp = add_exp
+
+		# Tracking & Farasat Logic
+		self.animation_player = animation_player
+		self.visible_sprites = groups[0] # Store reference to main visible group
+		self.last_track_frame = -1 
+		self.study_progress = 0
+		self.study_target = 100
+		self.is_studied = False
 
 		# invincibility timer
 		self.vulnerable = True
@@ -92,6 +100,23 @@ class Enemy(Entity):
 			self.direction = self.get_player_distance_direction(player)[1]
 		else:
 			self.direction = pygame.math.Vector2()
+
+	def create_tracks(self):
+		"""Realistic Tracking: Spawns footprints based on animation steps."""
+		if self.status == 'move' and self.monster_name in ['bamboo', 'raccoon']:
+			current_frame = int(self.frame_index)
+			
+			# Trigger a footprint on specific animation frames
+			if current_frame in [0, 2] and current_frame != self.last_track_frame:
+				# Use the stored visible_sprites reference to avoid IndexError
+				self.animation_player.create_particles(
+					f'{self.monster_name}_track', 
+					self.rect.midbottom, 
+					[self.visible_sprites])
+				self.last_track_frame = current_frame
+			
+			if current_frame not in [0, 2]:
+				self.last_track_frame = -1
 
 	def animate(self):
 		animation = self.animations[self.status]
@@ -149,6 +174,7 @@ class Enemy(Entity):
 		self.animate()
 		self.cooldowns()
 		self.check_death()
+		self.create_tracks()
 
 	def enemy_update(self,player):
 		self.get_status(player)
