@@ -14,33 +14,32 @@ class Tile(pygame.sprite.Sprite):
         self.hitbox = self.rect.inflate(0,y_offset)
 
 class CloudBarrier(pygame.sprite.Sprite):
-    def __init__(self, y_pos, groups, zone_name):
+    def __init__(self, y_pos, height, groups, zone_name):
         super().__init__(groups)
         self.sprite_type = 'cloud'
         self.zone_name = zone_name
         
-        # Load and set up the cloud image
+        # Load the cloud asset
         try:
             raw_cloud = pygame.image.load('../graphics/ui/cloud.png').convert_alpha()
-            # Scale it to be a bit taller for a better barrier effect
             self.cloud_surf = pygame.transform.scale(raw_cloud, (320, 180)) 
         except:
-            # Fallback if file is missing
             self.cloud_surf = pygame.Surface((320, 180))
             self.cloud_surf.fill('white')
             self.cloud_surf.set_alpha(150)
 
-        # Create a surface that spans the width of the world (e.g., 5000px)
+        # 1. ADJUSTED DIMENSIONS: Width spans the world, height is now dynamic
         world_width = 5000 
-        self.image = pygame.Surface((world_width, 180), pygame.SRCALPHA)
+        self.image = pygame.Surface((world_width, height), pygame.SRCALPHA)
         
-        # Tile the cloud image across the barrier width
+        # 2. TILING: Fill the entire height and width with the cloud texture
         for x in range(0, world_width, 320):
-            self.image.blit(self.cloud_surf, (x, 0))
+            for y in range(0, height, 180):
+                self.image.blit(self.cloud_surf, (x, y))
         
+        # 3. POSITIONING: The top of the cloud starts at y_pos
         self.rect = self.image.get_rect(topleft = (-500, y_pos))
-        # The hitbox is what the player actually bumps into
-        self.hitbox = self.rect.inflate(0, -60) 
+        self.hitbox = self.rect.inflate(0, 0) # Solid barrier
 
 class Mirage(pygame.sprite.Sprite):
     def __init__(self,pos,groups,surface):

@@ -17,27 +17,42 @@ class Level:
 		self.game_paused = False
 		self.show_codex = False
 
-		# sprite group setup
 		self.visible_sprites = YSortCameraGroup()
 		self.obstacle_sprites = pygame.sprite.Group()
-
-		# attack sprites
-		self.current_attack = None
 		self.attack_sprites = pygame.sprite.Group()
 		self.attackable_sprites = pygame.sprite.Group()
 
 		self.animation_player = AnimationPlayer()
 		self.ui = UI()
 
-		# sprite setup
 		self.create_map()
 		self.upgrade = Upgrade(self.player)
 		self.magic_player = MagicPlayer(self.animation_player)
 
-		# Biome Cloud Barriers using cloud.png
+		# --- CLOUD POSITIONING LOGIC ---
+		# Example: If bridge starts at 4200 and ends at 3800:
+		# Middle is 4000. Height needed is 200.
+		
+		# ADJUST THESE VALUES BASED ON YOUR ACTUAL BRIDGE COORDINATES
+		bridge_middle_y = ZONE_THRESHOLDS['mangrove'] # Currently 4000
+		bridge_length_to_end = 400 # How far down (vertically) the cloud goes
+		
 		self.cloud_group = pygame.sprite.Group()
-		self.mangrove_cloud = CloudBarrier(ZONE_THRESHOLDS['mangrove'], [self.visible_sprites, self.obstacle_sprites, self.cloud_group], 'mangrove')
-		self.winter_cloud = CloudBarrier(ZONE_THRESHOLDS['winter'], [self.visible_sprites, self.obstacle_sprites, self.cloud_group], 'winter')
+		
+		# Create the mangrove barrier starting at the middle of the bridge
+		self.mangrove_cloud = CloudBarrier(
+			bridge_middle_y, 
+			bridge_length_to_end, 
+			[self.visible_sprites, self.obstacle_sprites, self.cloud_group], 
+			'mangrove'
+		)
+
+		self.winter_cloud = CloudBarrier(
+			ZONE_THRESHOLDS['winter'], 
+			600, # Large enough to cover the transition
+			[self.visible_sprites, self.obstacle_sprites, self.cloud_group], 
+			'winter'
+		)
 
 	def create_map(self):
 		layouts = {
@@ -138,7 +153,6 @@ class Level:
 		self.show_codex = not self.show_codex
 
 	def gating_logic(self, total_k):
-		"""Unlocks cloud barriers based on Farasat."""
 		if total_k >= UNLOCK_REQUIREMENTS['mangrove'] and self.mangrove_cloud.alive():
 			self.mangrove_cloud.kill()
 		if total_k >= UNLOCK_REQUIREMENTS['winter'] and self.winter_cloud.alive():
@@ -146,11 +160,8 @@ class Level:
 
 	def run(self):
 		total_knowledge = sum(self.player.knowledge.values()) / len(self.player.knowledge)
-		
-		# Draw
 		self.visible_sprites.custom_draw(self.player)
 		
-		# Update
 		if not self.game_paused and not self.show_codex:
 			self.visible_sprites.update()
 			self.visible_sprites.enemy_update(self.player)
@@ -158,7 +169,6 @@ class Level:
 			self.study_enemy_logic()
 			self.gating_logic(total_knowledge)
 
-		# HUD and Overlays
 		self.ui.display(self.player, total_knowledge)
 		
 		if self.game_paused:
