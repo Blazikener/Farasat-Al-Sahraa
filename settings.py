@@ -8,16 +8,22 @@ HITBOX_OFFSET = {
 	'object': -40,
 	'grass': -10,
 	'mirage': -10,
-	'invisible': 0}
+	'invisible': 0,
+    'cloud': 0} #
 
-# Unlock Requirements (Total Knowledge Percentage)
-UNLOCK_REQUIREMENTS = {
-    'mangrove': 30,
-    'winter': 60,
-    'peak': 100
+# Biome Thresholds 
+ZONE_THRESHOLDS = {
+    'mangrove': 4000, 
+    'winter': 2000    
 }
 
-# Weapon Unlock Requirements (Total Knowledge Percentage)
+# Unlock Requirements
+UNLOCK_REQUIREMENTS = {
+    'mangrove': 30, 
+    'winter': 60    
+}
+
+# Weapon Unlock Requirements
 WEAPON_UNLOCKS = {
     'sword': 0,
     'lance': 30,

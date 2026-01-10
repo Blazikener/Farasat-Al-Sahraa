@@ -1,6 +1,6 @@
 import pygame 
 from settings import *
-from tile import Tile, Mirage
+from tile import Tile, Mirage, CloudBarrier
 from player import Player
 from support import *
 from random import choice, randint
@@ -13,8 +13,6 @@ from upgrade import Upgrade
 
 class Level:
 	def __init__(self):
-
-		# get the display surface 
 		self.display_surface = pygame.display.get_surface()
 		self.game_paused = False
 		self.show_codex = False
@@ -28,18 +26,18 @@ class Level:
 		self.attack_sprites = pygame.sprite.Group()
 		self.attackable_sprites = pygame.sprite.Group()
 
-		# particles
 		self.animation_player = AnimationPlayer()
-
-		# user interface 
 		self.ui = UI()
 
 		# sprite setup
 		self.create_map()
 		self.upgrade = Upgrade(self.player)
-
-		# magic
 		self.magic_player = MagicPlayer(self.animation_player)
+
+		# Biome Cloud Barriers using cloud.png
+		self.cloud_group = pygame.sprite.Group()
+		self.mangrove_cloud = CloudBarrier(ZONE_THRESHOLDS['mangrove'], [self.visible_sprites, self.obstacle_sprites, self.cloud_group], 'mangrove')
+		self.winter_cloud = CloudBarrier(ZONE_THRESHOLDS['winter'], [self.visible_sprites, self.obstacle_sprites, self.cloud_group], 'winter')
 
 	def create_map(self):
 		layouts = {
@@ -64,42 +62,22 @@ class Level:
 							Tile((x,y),[self.obstacle_sprites],'invisible')
 						if style == 'grass':
 							random_grass_image = choice(graphics['grass'])
-							Tile(
-								(x,y),
-								[self.visible_sprites,self.obstacle_sprites,self.attackable_sprites],
-								'grass',
-								random_grass_image)
-
+							Tile((x,y),[self.visible_sprites,self.obstacle_sprites,self.attackable_sprites],'grass',random_grass_image)
 						if style == 'object':
 							if col == '21': 
 								Mirage((x,y),[self.visible_sprites],graphics['mirage'])
 							else:
 								surf = graphics['objects'][int(col)]
 								Tile((x,y),[self.visible_sprites,self.obstacle_sprites],'object',surf)
-
 						if style == 'entities':
 							if col == '394':
-								self.player = Player(
-									(x,y),
-									[self.visible_sprites],
-									self.obstacle_sprites,
-									self.create_attack,
-									self.destroy_attack,
-									self.create_magic)
+								self.player = Player((x,y),[self.visible_sprites],self.obstacle_sprites,self.create_attack,self.destroy_attack,self.create_magic)
 							else:
 								if col == '390': monster_name = 'bamboo'
 								elif col == '391': monster_name = 'spirit'
 								elif col == '392': monster_name ='raccoon'
 								else: monster_name = 'squid'
-								Enemy(
-									monster_name,
-									(x,y),
-									[self.visible_sprites,self.attackable_sprites],
-									self.obstacle_sprites,
-									self.damage_player,
-									self.trigger_death_particles,
-									self.add_exp,
-									self.animation_player)
+								Enemy(monster_name,(x,y),[self.visible_sprites,self.attackable_sprites],self.obstacle_sprites,self.damage_player,self.trigger_death_particles,self.add_exp,self.animation_player)
 
 	def create_attack(self):
 		self.current_attack = Weapon(self.player,[self.visible_sprites,self.attack_sprites])
@@ -111,8 +89,7 @@ class Level:
 			self.magic_player.flame(self.player,cost,[self.visible_sprites,self.attack_sprites])
 
 	def destroy_attack(self):
-		if self.current_attack:
-			self.current_attack.kill()
+		if self.current_attack: self.current_attack.kill()
 		self.current_attack = None
 
 	def player_attack_logic(self):
@@ -160,17 +137,28 @@ class Level:
 	def toggle_codex(self):
 		self.show_codex = not self.show_codex
 
+	def gating_logic(self, total_k):
+		"""Unlocks cloud barriers based on Farasat."""
+		if total_k >= UNLOCK_REQUIREMENTS['mangrove'] and self.mangrove_cloud.alive():
+			self.mangrove_cloud.kill()
+		if total_k >= UNLOCK_REQUIREMENTS['winter'] and self.winter_cloud.alive():
+			self.winter_cloud.kill()
+
 	def run(self):
 		total_knowledge = sum(self.player.knowledge.values()) / len(self.player.knowledge)
 		
+		# Draw
 		self.visible_sprites.custom_draw(self.player)
 		
+		# Update
 		if not self.game_paused and not self.show_codex:
 			self.visible_sprites.update()
 			self.visible_sprites.enemy_update(self.player)
 			self.player_attack_logic()
 			self.study_enemy_logic()
+			self.gating_logic(total_knowledge)
 
+		# HUD and Overlays
 		self.ui.display(self.player, total_knowledge)
 		
 		if self.game_paused:
@@ -189,18 +177,14 @@ class YSortCameraGroup(pygame.sprite.Group):
 		self.half_width = self.display_surface.get_size()[0] // 2
 		self.half_height = self.display_surface.get_size()[1] // 2
 		self.offset = pygame.math.Vector2()
-
-		# Floor
 		self.floor_surf = pygame.image.load('../graphics/tilemap/ground.png').convert()
 		self.floor_rect = self.floor_surf.get_rect(topleft = (0,0))
 
 	def custom_draw(self,player):
 		self.offset.x = player.rect.centerx - self.half_width
 		self.offset.y = player.rect.centery - self.half_height
-
 		floor_offset_pos = self.floor_rect.topleft - self.offset
 		self.display_surface.blit(self.floor_surf,floor_offset_pos)
-
 		for sprite in sorted(self.sprites(),key = lambda sprite: sprite.rect.centery):
 			offset_pos = sprite.rect.topleft - self.offset
 			self.display_surface.blit(sprite.image,offset_pos)
