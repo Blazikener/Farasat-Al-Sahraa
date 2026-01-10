@@ -24,7 +24,7 @@ class Level:
 
 		self.animation_player = AnimationPlayer()
 		self.ui = UI()
-
+		
 		self.create_map()
 		self.upgrade = Upgrade(self.player)
 		self.magic_player = MagicPlayer(self.animation_player)
