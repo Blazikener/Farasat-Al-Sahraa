@@ -10,6 +10,28 @@ HITBOX_OFFSET = {
 	'mirage': -10,
 	'invisible': 0}
 
+# Farasat Biome Thresholds (Y-Coordinates)
+ZONE_THRESHOLDS = {
+    'mangrove': 4200, # Boundary between Desert and Mangrove
+    'winter': 2100    # Boundary between Mangrove and Winter Desert
+}
+
+# Unlock Requirements (Total Knowledge Percentage)
+UNLOCK_REQUIREMENTS = {
+    'mangrove': 30,
+    'winter': 60,
+    'peak': 100
+}
+
+# Weapon Unlock Requirements (Total Knowledge Percentage)
+WEAPON_UNLOCKS = {
+    'sword': 0,
+    'lance': 30,
+    'axe': 60,
+    'rapier': 80,
+    'sai': 90
+}
+
 # ui 
 BAR_HEIGHT = 20
 HEALTH_BAR_WIDTH = 200

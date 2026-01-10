@@ -20,6 +20,14 @@ class Player(Entity):
 		self.attack_time = None
 		self.obstacle_sprites = obstacle_sprites
 
+		# Farasat Knowledge System (Replaces EXP)
+		self.knowledge = {
+			'terrain': 10,  # Starting values for testing
+			'wildlife': 5,
+			'survival': 0
+		}
+		self.exp = 0 # Kept for upgrade compatibility, but will be mapped to knowledge later
+
 		# weapon
 		self.create_attack = create_attack
 		self.destroy_attack = destroy_attack
@@ -42,7 +50,6 @@ class Player(Entity):
 		self.upgrade_cost = {'health': 100, 'energy': 100, 'attack': 100, 'magic' : 100, 'speed': 100}
 		self.health = self.stats['health'] * 0.5
 		self.energy = self.stats['energy'] * 0.8
-		self.exp = 5000
 		self.speed = self.stats['speed']
 
 		# damage timer
@@ -103,15 +110,13 @@ class Player(Entity):
 				cost = list(magic_data.values())[self.magic_index]['cost']
 				self.create_magic(style,strength,cost)
 
+			# Weapon Switching with Knowledge Locks
 			if keys[pygame.K_q] and self.can_switch_weapon:
 				self.can_switch_weapon = False
 				self.weapon_switch_time = pygame.time.get_ticks()
 				
-				if self.weapon_index < len(list(weapon_data.keys())) - 1:
-					self.weapon_index += 1
-				else:
-					self.weapon_index = 0
-					
+				# Cycle to next weapon
+				self.weapon_index = (self.weapon_index + 1) % len(list(weapon_data.keys()))
 				self.weapon = list(weapon_data.keys())[self.weapon_index]
 
 			if keys[pygame.K_e] and self.can_switch_magic:

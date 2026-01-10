@@ -18,6 +18,7 @@ class Level:
 		# get the display surface 
 		self.display_surface = pygame.display.get_surface()
 		self.game_paused = False
+		self.show_codex = False
 
 		# sprite group setup
 		self.visible_sprites = YSortCameraGroup()
@@ -146,14 +147,16 @@ class Level:
 				if dist < sprite.notice_radius and not self.player.attacking:
 					studying_any = True
 					sprite.study_progress += 0.5
-					self.ui.show_study_bar(sprite.study_progress, sprite.study_target)
+					# self.ui.show_study_bar(sprite.study_progress, sprite.study_target) 
 					if sprite.study_progress >= sprite.study_target:
 						sprite.is_studied = True
-						self.add_exp(sprite.exp * 2) 
+						# Gaining survival knowledge
+						self.player.knowledge['survival'] = min(100, self.player.knowledge['survival'] + 5)
 		
 		# Show insight eye/lightbulb if studying
 		if studying_any:
-			self.ui.show_insight_indicator(self.player)
+			# self.ui.show_insight_indicator(self.player)
+			pass
 
 	def damage_player(self,amount,attack_type):
 		if self.player.vulnerable:
@@ -166,17 +169,26 @@ class Level:
 		self.animation_player.create_particles(particle_type,pos,self.visible_sprites)
 
 	def add_exp(self,amount):
-		self.player.exp += amount
+		# Map monster kills to wildlife knowledge instead of pure EXP
+		self.player.knowledge['wildlife'] = min(100, self.player.knowledge['wildlife'] + (amount / 100))
 
 	def toggle_menu(self):
 		self.game_paused = not self.game_paused 
 
+	def toggle_codex(self):
+		self.show_codex = not self.show_codex
+
 	def run(self):
+		# Calculate total knowledge for UI and unlocking
+		total_knowledge = sum(self.player.knowledge.values()) / len(self.player.knowledge)
+
 		self.visible_sprites.custom_draw(self.player)
-		self.ui.display(self.player)
+		self.ui.display(self.player, total_knowledge)
 		
 		if self.game_paused:
 			self.upgrade.display()
+		elif self.show_codex:
+			self.ui.show_knowledge_book(self.player.knowledge)
 		else:
 			self.visible_sprites.update()
 			self.visible_sprites.enemy_update(self.player)
