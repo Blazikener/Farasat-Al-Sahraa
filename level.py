@@ -2,7 +2,6 @@ import pygame
 from settings import *
 from tile import Tile, Mirage
 from player import Player
-from debug import debug
 from support import *
 from random import choice, randint
 from weapon import Weapon
@@ -42,12 +41,6 @@ class Level:
 		# magic
 		self.magic_player = MagicPlayer(self.animation_player)
 
-		# Farasat Mechanics
-		self.sandstorm_active = False
-		self.storm_timer = pygame.time.get_ticks()
-		self.storm_surf = pygame.image.load('../graphics/ui/sand_overlay.png').convert_alpha()
-		self.storm_x = 0
-
 	def create_map(self):
 		layouts = {
 			'boundary': import_csv_layout('../map/map_FloorBlocks.csv'),
@@ -78,7 +71,7 @@ class Level:
 								random_grass_image)
 
 						if style == 'object':
-							if col == '21': # Oasis ID in map_Objects.csv
+							if col == '21': 
 								Mirage((x,y),[self.visible_sprites],graphics['mirage'])
 							else:
 								surf = graphics['objects'][int(col)]
@@ -139,24 +132,14 @@ class Level:
 								target_sprite.get_damage(self.player,attack_sprite.sprite_type)
 
 	def study_enemy_logic(self):
-		"""Farasat Mechanic: Tracking & Interpretation."""
-		studying_any = False
 		for sprite in self.attackable_sprites:
 			if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'enemy' and not sprite.is_studied:
 				dist = sprite.get_player_distance_direction(self.player)[0]
 				if dist < sprite.notice_radius and not self.player.attacking:
-					studying_any = True
 					sprite.study_progress += 0.5
-					# self.ui.show_study_bar(sprite.study_progress, sprite.study_target) 
 					if sprite.study_progress >= sprite.study_target:
 						sprite.is_studied = True
-						# Gaining survival knowledge
 						self.player.knowledge['survival'] = min(100, self.player.knowledge['survival'] + 5)
-		
-		# Show insight eye/lightbulb if studying
-		if studying_any:
-			# self.ui.show_insight_indicator(self.player)
-			pass
 
 	def damage_player(self,amount,attack_type):
 		if self.player.vulnerable:
@@ -169,7 +152,6 @@ class Level:
 		self.animation_player.create_particles(particle_type,pos,self.visible_sprites)
 
 	def add_exp(self,amount):
-		# Map monster kills to wildlife knowledge instead of pure EXP
 		self.player.knowledge['wildlife'] = min(100, self.player.knowledge['wildlife'] + (amount / 100))
 
 	def toggle_menu(self):
@@ -179,41 +161,26 @@ class Level:
 		self.show_codex = not self.show_codex
 
 	def run(self):
-		# Calculate total knowledge for UI and unlocking
 		total_knowledge = sum(self.player.knowledge.values()) / len(self.player.knowledge)
-
+		
 		self.visible_sprites.custom_draw(self.player)
+		
+		if not self.game_paused and not self.show_codex:
+			self.visible_sprites.update()
+			self.visible_sprites.enemy_update(self.player)
+			self.player_attack_logic()
+			self.study_enemy_logic()
+
 		self.ui.display(self.player, total_knowledge)
 		
 		if self.game_paused:
 			self.upgrade.display()
 		elif self.show_codex:
 			self.ui.show_knowledge_book(self.player.knowledge)
-		else:
-			self.visible_sprites.update()
-			self.visible_sprites.enemy_update(self.player)
-			self.player_attack_logic()
-			self.study_enemy_logic()
 
-			# Sandstorm Scrolling Effect (Survival Strategy)
-			current_time = pygame.time.get_ticks()
-			if current_time - self.storm_timer > 30000: 
-				self.sandstorm_active = not self.sandstorm_active
-				self.storm_timer = current_time
-			
-			if self.sandstorm_active:
-				self.player.energy -= 0.01 
-				self.storm_x -= 3 # Scroll speed
-				if self.storm_x <= -WIDTH: self.storm_x = 0
-				
-				# Blit two layers for seamless loop
-				self.display_surface.blit(self.storm_surf, (self.storm_x, 0))
-				self.display_surface.blit(self.storm_surf, (self.storm_x + WIDTH, 0))
-
-			# Mirage Update Logic
-			for sprite in self.visible_sprites:
-				if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'mirage':
-					sprite.update_visibility(self.player)
+		for sprite in self.visible_sprites:
+			if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'mirage':
+				sprite.update_visibility(self.player)
 
 class YSortCameraGroup(pygame.sprite.Group):
 	def __init__(self):
@@ -222,14 +189,18 @@ class YSortCameraGroup(pygame.sprite.Group):
 		self.half_width = self.display_surface.get_size()[0] // 2
 		self.half_height = self.display_surface.get_size()[1] // 2
 		self.offset = pygame.math.Vector2()
+
+		# Floor
 		self.floor_surf = pygame.image.load('../graphics/tilemap/ground.png').convert()
 		self.floor_rect = self.floor_surf.get_rect(topleft = (0,0))
 
 	def custom_draw(self,player):
 		self.offset.x = player.rect.centerx - self.half_width
 		self.offset.y = player.rect.centery - self.half_height
+
 		floor_offset_pos = self.floor_rect.topleft - self.offset
 		self.display_surface.blit(self.floor_surf,floor_offset_pos)
+
 		for sprite in sorted(self.sprites(),key = lambda sprite: sprite.rect.centery):
 			offset_pos = sprite.rect.topleft - self.offset
 			self.display_surface.blit(sprite.image,offset_pos)

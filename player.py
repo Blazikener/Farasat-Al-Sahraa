@@ -20,13 +20,13 @@ class Player(Entity):
 		self.attack_time = None
 		self.obstacle_sprites = obstacle_sprites
 
-		# Farasat Knowledge System (Replaces EXP)
+		# Farasat Knowledge System
 		self.knowledge = {
-			'terrain': 10,  # Starting values for testing
-			'wildlife': 5,
+			'terrain': 0,
+			'wildlife': 0,
 			'survival': 0
 		}
-		self.exp = 0 # Kept for upgrade compatibility, but will be mapped to knowledge later
+		self.exp = 0 
 
 		# weapon
 		self.create_attack = create_attack
@@ -48,8 +48,8 @@ class Player(Entity):
 		self.stats = {'health': 100,'energy':60,'attack': 10,'magic': 4,'speed': 5}
 		self.max_stats = {'health': 300, 'energy': 140, 'attack': 20, 'magic' : 10, 'speed': 10}
 		self.upgrade_cost = {'health': 100, 'energy': 100, 'attack': 100, 'magic' : 100, 'speed': 100}
-		self.health = self.stats['health'] * 0.5
-		self.energy = self.stats['energy'] * 0.8
+		self.health = self.stats['health']
+		self.energy = self.stats['energy']
 		self.speed = self.stats['speed']
 
 		# damage timer
@@ -110,15 +110,20 @@ class Player(Entity):
 				cost = list(magic_data.values())[self.magic_index]['cost']
 				self.create_magic(style,strength,cost)
 
-			# Weapon Switching with Knowledge Locks
+			# Weapon Switching
 			if keys[pygame.K_q] and self.can_switch_weapon:
 				self.can_switch_weapon = False
 				self.weapon_switch_time = pygame.time.get_ticks()
 				
-				# Cycle to next weapon
-				self.weapon_index = (self.weapon_index + 1) % len(list(weapon_data.keys()))
-				self.weapon = list(weapon_data.keys())[self.weapon_index]
+				total_k = sum(self.knowledge.values()) / len(self.knowledge)
+				temp_index = (self.weapon_index + 1) % len(list(weapon_data.keys()))
+				temp_weapon = list(weapon_data.keys())[temp_index]
+				
+				if total_k >= WEAPON_UNLOCKS.get(temp_weapon, 0):
+					self.weapon_index = temp_index
+					self.weapon = temp_weapon
 
+			# Magic Switching - Fixed Syntax Error here
 			if keys[pygame.K_e] and self.can_switch_magic:
 				self.can_switch_magic = False
 				self.magic_switch_time = pygame.time.get_ticks()
@@ -131,8 +136,6 @@ class Player(Entity):
 				self.magic = list(magic_data.keys())[self.magic_index]
 
 	def get_status(self):
-
-		# idle status
 		if self.direction.x == 0 and self.direction.y == 0:
 			if not 'idle' in self.status and not 'attack' in self.status:
 				self.status = self.status + '_idle'
@@ -171,17 +174,13 @@ class Player(Entity):
 
 	def animate(self):
 		animation = self.animations[self.status]
-
-		# loop over the frame index 
 		self.frame_index += self.animation_speed
 		if self.frame_index >= len(animation):
 			self.frame_index = 0
 
-		# set the image
 		self.image = animation[int(self.frame_index)]
 		self.rect = self.image.get_rect(center = self.hitbox.center)
 
-		# flicker 
 		if not self.vulnerable:
 			alpha = self.wave_value()
 			self.image.set_alpha(alpha)
