@@ -7,6 +7,8 @@ class UI:
 		# general 
 		self.display_surface = pygame.display.get_surface()
 		self.font = pygame.font.Font(UI_FONT,UI_FONT_SIZE)
+		# Smaller font for hotkey hints
+		self.small_font = pygame.font.Font(UI_FONT, UI_FONT_SIZE - 6)
 
 		# bar setup 
 		self.health_bar_rect = pygame.Rect(10,10,HEALTH_BAR_WIDTH,BAR_HEIGHT)
@@ -15,7 +17,12 @@ class UI:
 		# load assets
 		self.weapon_graphics = [pygame.image.load(w['graphic']).convert_alpha() for w in weapon_data.values()]
 		self.magic_graphics = [pygame.image.load(m['graphic']).convert_alpha() for m in magic_data.values()]
-		self.insight_icon = pygame.image.load('../graphics/ui/insight_icon.png').convert_alpha()
+		
+		try:
+			self.insight_icon = pygame.image.load('../graphics/ui/insight_icon.png').convert_alpha()
+		except:
+			self.insight_icon = pygame.Surface((32,32))
+			self.insight_icon.fill('gold')
 
 
 	def show_bar(self,current,max_amount,bg_rect,color):
@@ -60,6 +67,18 @@ class UI:
 		pygame.draw.rect(self.display_surface,color,bg_rect,3)
 		return bg_rect
 
+	def draw_key_hint(self, letter, box_rect):
+		"""Draws a small hotkey letter hint in the top-left of the selection box."""
+		hint_surf = self.small_font.render(letter, False, 'white')
+		hint_rect = hint_surf.get_rect(topleft = box_rect.topleft + pygame.math.Vector2(5, 2))
+		
+		# Draw a small shadow for readability
+		shadow_surf = self.small_font.render(letter, False, 'black')
+		shadow_rect = shadow_surf.get_rect(topleft = hint_rect.topleft + pygame.math.Vector2(1, 1))
+		
+		self.display_surface.blit(shadow_surf, shadow_rect)
+		self.display_surface.blit(hint_surf, hint_rect)
+
 	def display(self,player):
 		self.show_bar(player.health,player.stats['health'],self.health_bar_rect,HEALTH_COLOR)
 		self.show_bar(player.energy,player.stats['energy'],self.energy_bar_rect,ENERGY_COLOR)
@@ -69,8 +88,18 @@ class UI:
 
 	def weapon_overlay(self,weapon_index,has_switched):
 		bg_rect = self.selection_box(10,630,has_switched)
-		self.display_surface.blit(self.weapon_graphics[weapon_index], self.weapon_graphics[weapon_index].get_rect(center = bg_rect.center))
+		weapon_surf = self.weapon_graphics[weapon_index]
+		weapon_rect = weapon_surf.get_rect(center = bg_rect.center)
+		self.display_surface.blit(weapon_surf, weapon_rect)
+		
+		# Hotkey hint for switching weapons (Q)
+		self.draw_key_hint("Q", bg_rect)
 
 	def magic_overlay(self,magic_index,has_switched):
 		bg_rect = self.selection_box(80,635,has_switched)
-		self.display_surface.blit(self.magic_graphics[magic_index], self.magic_graphics[magic_index].get_rect(center = bg_rect.center))
+		magic_surf = self.magic_graphics[magic_index]
+		magic_rect = magic_surf.get_rect(center = bg_rect.center)
+		self.display_surface.blit(magic_surf, magic_rect)
+		
+		# Hotkey hint for switching abilities (E)
+		self.draw_key_hint("E", bg_rect)

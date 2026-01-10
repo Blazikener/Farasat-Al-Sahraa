@@ -7,7 +7,7 @@ HITBOX_OFFSET = {
 	'player': -26,
 	'object': -40,
 	'grass': -10,
-	'mirage': -10, # Added for oasis
+	'mirage': -10,
 	'invisible': 0}
 
 # ui 
