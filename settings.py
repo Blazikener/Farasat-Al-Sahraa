@@ -53,6 +53,16 @@ weapon_data = {
 	'axe': {'cooldown': 300, 'damage': 20, 'graphic':'../graphics/weapons/axe/full.png'},
 	'rapier':{'cooldown': 50, 'damage': 8, 'graphic':'../graphics/weapons/rapier/full.png'},
 	'sai':{'cooldown': 80, 'damage': 10, 'graphic':'../graphics/weapons/sai/full.png'}}
+	# settings.py - Add this to the weapon_data
+weapon_data = {
+	'sword':  {'cooldown': 100, 'damage': 15, 'graphic':'../graphics/weapons/sword/full.png', 'cost': 0},
+	'lance':  {'cooldown': 400, 'damage': 30, 'graphic':'../graphics/weapons/lance/full.png', 'cost': 100},
+	'axe':    {'cooldown': 300, 'damage': 20, 'graphic':'../graphics/weapons/axe/full.png', 'cost': 150},
+	'rapier': {'cooldown': 50,  'damage': 8,  'graphic':'../graphics/weapons/rapier/full.png', 'cost': 200},
+	'sai':    {'cooldown': 80,  'damage': 10, 'graphic':'../graphics/weapons/sai/full.png', 'cost': 250}}
+
+# Add this to monster_data to reward the player with money (exp will act as currency)
+# In this version, we will use 'exp' as the currency for the shop.
 
 # Magic Data
 magic_data = {
