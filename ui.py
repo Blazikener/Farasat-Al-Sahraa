@@ -24,13 +24,17 @@ class UI:
 			path = magic['graphic']
 			self.magic_graphics.append(pygame.image.load(path).convert_alpha())
 		
-		# Load Shop Icon
+		# --- UPDATED SHOP ICON LOADING ---
 		try:
-			self.shop_icon_surf = pygame.image.load('../graphics/ui/shop_icon.png').convert_alpha()
+			# Load the 16x16 icon from the objects folder
+			self.shop_icon_surf = pygame.image.load('../graphics/objects/shop_icon.png').convert_alpha()
+			# Scale it up to 40x40 so it looks good in the UI box
 			self.shop_icon_surf = pygame.transform.scale(self.shop_icon_surf, (40, 40))
-		except:
+		except Exception as e:
+			print(f"UI Warning: Could not load shop_icon.png. {e}")
 			self.shop_icon_surf = pygame.Surface((40, 40))
 			self.shop_icon_surf.fill('gold')
+		# ---------------------------------
 
 		# Insight Message System
 		self.message = ""
@@ -108,7 +112,6 @@ class UI:
 		shop_rect = pygame.Rect(WIDTH//4, HEIGTH//10, WIDTH//2, HEIGTH*0.8)
 		self.draw_parchment(shop_rect)
 		
-		# --- FIXED ALIGNMENT HERE ---
 		# Use midtop to center the text perfectly relative to the shop window
 		title_surf = self.title_font.render("THE DESERT TRADER", False, '#5c4033')
 		title_rect = title_surf.get_rect(midtop = (WIDTH//2, shop_rect.top + 40))
@@ -117,10 +120,9 @@ class UI:
 		scraps_surf = self.font.render(f"AVAILABLE SCRAPS: {int(player.exp)}", False, '#8B4513')
 		scraps_rect = scraps_surf.get_rect(midtop = (WIDTH//2, shop_rect.top + 90))
 		self.display_surface.blit(scraps_surf, scraps_rect)
-		# -----------------------------
 
 		for i, name in enumerate(self.weapon_names):
-			if name == 'sword': continue # Don't sell the starting weapon
+			if name == 'sword': continue 
 			
 			y_pos = shop_rect.top + 160 + (i-1) * 100
 			item_rect = pygame.Rect(shop_rect.left + 50, y_pos, shop_rect.width - 100, 80)
@@ -243,8 +245,7 @@ class UI:
 			pygame.draw.rect(self.display_surface, UI_BORDER_COLOR, rect, 3)
 			self.display_surface.blit(self.font.render(key, False, 'gold'), (rect.right - 22, rect.bottom - 22))
 		
-		# --- FIXED HUD BOX LOGIC HERE ---
-		# Create the text first to measure it
+		# --- DYNAMIC SCRAPS BOX ---
 		scraps_text_surf = self.font.render(f"SCRAPS: {int(player.exp)}", False, 'white')
 		
 		# Dynamic Width: Minimum 200px, but expands if text is longer
@@ -260,7 +261,7 @@ class UI:
 		# Center text vertically in the box
 		text_rect = scraps_text_surf.get_rect(midleft = (icon_rect.left + 50, icon_rect.centery))
 		self.display_surface.blit(scraps_text_surf, text_rect)
-		# --------------------------------
+		# --------------------------
 
 		self.draw_insight_message()
 		self.draw_transition()
