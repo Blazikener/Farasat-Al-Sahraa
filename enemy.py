@@ -13,7 +13,14 @@ class Enemy(Entity):
 		# graphics setup
 		self.import_graphics(monster_name)
 		self.status = 'idle'
-		self.image = self.animations[self.status][self.frame_index]
+		
+		# SAFEGUARD: Check if animations were loaded to avoid IndexError
+		if self.animations[self.status]:
+			self.image = self.animations[self.status][self.frame_index]
+		else:
+			# Fallback if graphics are missing
+			self.image = pygame.Surface((64,64))
+			self.image.fill('red')
 
 		# movement
 		self.rect = self.image.get_rect(topleft = pos)
@@ -42,7 +49,7 @@ class Enemy(Entity):
 
 		# Tracking & Farasat Logic
 		self.animation_player = animation_player
-		self.visible_sprites = groups[0] # Store reference to main visible group
+		self.visible_sprites = groups[0] 
 		self.last_track_frame = -1 
 		self.study_progress = 0
 		self.study_target = 100
@@ -103,12 +110,11 @@ class Enemy(Entity):
 
 	def create_tracks(self):
 		"""Realistic Tracking: Spawns footprints based on animation steps."""
-		if self.status == 'move' and self.monster_name in ['bamboo', 'raccoon']:
+		# Updated to check for 'ringtail' name
+		if self.status == 'move' and self.monster_name in ['bamboo', 'ringtail']:
 			current_frame = int(self.frame_index)
 			
-			# Trigger a footprint on specific animation frames
 			if current_frame in [0, 2] and current_frame != self.last_track_frame:
-				# Use the stored visible_sprites reference to avoid IndexError
 				self.animation_player.create_particles(
 					f'{self.monster_name}_track', 
 					self.rect.midbottom, 
@@ -121,6 +127,9 @@ class Enemy(Entity):
 	def animate(self):
 		animation = self.animations[self.status]
 		
+		# SAFEGUARD: Only animate if frames exist
+		if not animation: return
+
 		self.frame_index += self.animation_speed
 		if self.frame_index >= len(animation):
 			if self.status == 'attack':

@@ -28,7 +28,6 @@ class Level:
 
 		self.animation_player = AnimationPlayer()
 		self.ui = UI()
-		
 		self.create_map()
 		self.upgrade = Upgrade(self.player)
 		self.magic_player = MagicPlayer(self.animation_player)
@@ -39,7 +38,6 @@ class Level:
 		# Barriers
 		self.mangrove_cloud = CloudBarrier(ZONE_THRESHOLDS['mangrove'], 500, [self.visible_sprites, self.obstacle_sprites], 'mangrove')
 		self.winter_cloud = CloudBarrier(ZONE_THRESHOLDS['winter'], 800, [self.visible_sprites, self.obstacle_sprites], 'winter')
-
 		self.player_has_key = False 
 
 	def create_map(self):
@@ -51,8 +49,7 @@ class Level:
 		}
 		self.weapon_graphics = {name: pygame.image.load(data['graphic']).convert_alpha() for name, data in weapon_data.items()}
 		graphics = {
-			'grass': import_folder('../graphics/Grass'),
-			'objects': import_folder('../graphics/objects'),
+			'grass': import_folder('../graphics/Grass'), 'objects': import_folder('../graphics/objects'),
 			'mirage': pygame.image.load('../graphics/mirage/oasis.png').convert_alpha(),
 			'chest_closed': pygame.image.load('../graphics/objects/chest_closed.png').convert_alpha(),
 			'chest_open': pygame.image.load('../graphics/objects/chest_open.png').convert_alpha(),
@@ -60,194 +57,106 @@ class Level:
 		}
 
 		enemy_spawn_rate = 0.4 
-
 		for style,layout in layouts.items():
 			for row_index,row in enumerate(layout):
 				for col_index, col in enumerate(row):
 					if col != '-1':
-						x = col_index * TILESIZE
-						y = row_index * TILESIZE
-						if style == 'boundary':
-							Tile((x,y),[self.obstacle_sprites],'invisible')
-						if style == 'grass':
-							random_grass_image = choice(graphics['grass'])
-							Tile((x,y),[self.visible_sprites,self.obstacle_sprites,self.attackable_sprites],'grass',random_grass_image)
+						x, y = col_index * TILESIZE, row_index * TILESIZE
+						if style == 'boundary': Tile((x,y),[self.obstacle_sprites],'invisible')
+						if style == 'grass': Tile((x,y),[self.visible_sprites,self.obstacle_sprites,self.attackable_sprites],'grass',choice(graphics['grass']))
 						if style == 'object':
-							if col == '21': 
-								Mirage((x,y),[self.visible_sprites],graphics['mirage'])
-							elif col == '99': 
-								TreasureChest((x,y), [self.visible_sprites, self.obstacle_sprites, self.treasure_sprites], graphics['chest_closed'], graphics['chest_open'], 'lance')
-							elif col == '100':
-								Key((x,y), [self.visible_sprites, self.key_sprites], graphics['key'])
+							if col == '21': Mirage((x,y),[self.visible_sprites],graphics['mirage'])
+							elif col == '99': TreasureChest((x,y), [self.visible_sprites, self.obstacle_sprites, self.treasure_sprites], graphics['chest_closed'], graphics['chest_open'], 'lance')
+							elif col == '100': Key((x,y), [self.visible_sprites, self.key_sprites], graphics['key'])
 							else:
-								obj_index = int(col)
-								if obj_index < len(graphics['objects']):
-									surf = graphics['objects'][obj_index]
-									Tile((x,y),[self.visible_sprites,self.obstacle_sprites],'object',surf)
+								idx = int(col)
+								if idx < len(graphics['objects']): Tile((x,y),[self.visible_sprites,self.obstacle_sprites],'object',graphics['objects'][idx])
 						if style == 'entities':
-							if col == '394':
-								self.player = Player((x,y),[self.visible_sprites],self.obstacle_sprites,self.create_attack,self.destroy_attack,self.create_magic)
+							if col == '394': self.player = Player((x,y),[self.visible_sprites],self.obstacle_sprites,self.create_attack,self.destroy_attack,self.create_magic)
 							else:
 								if random() < enemy_spawn_rate:
-									monster_name = 'bamboo' if col == '390' else 'spirit' if col == '391' else 'raccoon' if col == '392' else 'squid'
-									Enemy(monster_name,(x,y),[self.visible_sprites,self.attackable_sprites],self.obstacle_sprites,self.damage_player,self.trigger_death_particles,self.add_exp,self.animation_player)
+									m_name = 'bamboo' if col == '390' else 'spirit' if col == '391' else 'ringtail' if col == '392' else 'squid'
+									Enemy(m_name,(x,y),[self.visible_sprites,self.attackable_sprites],self.obstacle_sprites,self.damage_player,self.trigger_death_particles,self.add_exp,self.animation_player)
 
 	def interaction_logic(self):
-		# 1. Key Pickup
-		for key_sprite in self.key_sprites:
-			if key_sprite.hitbox.colliderect(self.player.hitbox):
-				key_sprite.kill()
-				self.player_has_key = True
-				self.ui.trigger_insight("A rusted key... what does it unlock?") # TRIGGER INSIGHT
-
-		# 2. Weapon Pickup
-		for dropped_weapon in self.dropped_weapon_sprites:
-			if dropped_weapon.hitbox.colliderect(self.player.hitbox.inflate(10,10)):
-				self.player.add_weapon(dropped_weapon.weapon_name)
-				dropped_weapon.kill()
-				self.ui.trigger_insight(f"Obtained {dropped_weapon.weapon_name.upper()}!") # TRIGGER INSIGHT
-
-		# 3. Chest Interaction
-		keys_pressed = pygame.key.get_pressed()
-		for sprite in self.treasure_sprites:
-			if sprite.hitbox.colliderect(self.player.hitbox.inflate(30,30)):
-				if keys_pressed[pygame.K_SPACE]:
+		for key in self.key_sprites:
+			if key.hitbox.colliderect(self.player.hitbox): key.kill(); self.player_has_key = True; self.ui.trigger_insight("A key found in the sands.")
+		for dw in self.dropped_weapon_sprites:
+			if dw.hitbox.colliderect(self.player.hitbox.inflate(10,10)): self.player.add_weapon(dw.weapon_name); dw.kill(); self.ui.trigger_insight(f"Learned the {dw.weapon_name.upper()}.")
+		keys = pygame.key.get_pressed()
+		for ch in self.treasure_sprites:
+			if ch.hitbox.colliderect(self.player.hitbox.inflate(30,30)):
+				if keys[pygame.K_SPACE]:
 					if self.player_has_key:
-						if sprite.open_chest():
-							if sprite.weapon_contents:
-								weapon_surf = self.weapon_graphics[sprite.weapon_contents]
-								DroppedWeapon(sprite.rect.center, [self.visible_sprites, self.dropped_weapon_sprites], sprite.weapon_contents, weapon_surf)
-							
-							self.ui.trigger_insight("The lock yields. A gift from the sands.") # TRIGGER INSIGHT
-							self.player.knowledge['terrain'] = 100
-							self.player.knowledge['survival'] = 100
-							self.player.knowledge['wildlife'] = 100
-					else:
-						self.ui.trigger_insight("The chest is sealed tight.") # TRIGGER INSIGHT
-
-	def create_attack(self):
-		self.current_attack = Weapon(self.player,[self.visible_sprites,self.attack_sprites])
-
-	def create_magic(self,style,strength,cost):
-		if style == 'heal':
-			self.magic_player.heal(self.player,strength,cost,[self.visible_sprites])
-		if style == 'flame':
-			self.magic_player.flame(self.player,cost,[self.visible_sprites,self.attack_sprites])
-
-	def destroy_attack(self):
-		if self.current_attack: self.current_attack.kill()
-		self.current_attack = None
-
-	def player_attack_logic(self):
-		if self.attack_sprites:
-			for attack_sprite in self.attack_sprites:
-				collision_sprites = pygame.sprite.spritecollide(attack_sprite,self.attackable_sprites,False)
-				if collision_sprites:
-					for target_sprite in collision_sprites:
-						if target_sprite.sprite_type == 'grass':
-							pos = target_sprite.rect.center
-							offset = pygame.math.Vector2(0,75)
-							for leaf in range(randint(3,6)):
-								self.animation_player.create_grass_particles(pos - offset,[self.visible_sprites])
-							target_sprite.kill()
-						else:
-							if hasattr(target_sprite, 'get_damage'):
-								target_sprite.get_damage(self.player,attack_sprite.sprite_type)
-
-	def study_enemy_logic(self):
-		for sprite in self.attackable_sprites:
-			if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'enemy' and not sprite.is_studied:
-				dist = sprite.get_player_distance_direction(self.player)[0]
-				if dist < sprite.notice_radius and not self.player.attacking:
-					sprite.study_progress += 0.5
-					if sprite.study_progress >= sprite.study_target:
-						sprite.is_studied = True
-						self.player.knowledge['survival'] = min(100, self.player.knowledge['survival'] + 5)
-						self.ui.trigger_insight(f"Interpreted {sprite.monster_name.upper()} behavior.") # TRIGGER INSIGHT
-
-	def update_terrain_knowledge(self):
-		current_y = self.player.rect.centery
-		if current_y < self.furthest_y:
-			self.furthest_y = current_y
-			total_dist = self.map_height - current_y
-			percentage = min(100, (total_dist / self.map_height) * 100)
-			if percentage > self.player.knowledge['terrain']:
-				self.player.knowledge['terrain'] = int(percentage)
+						if ch.open_chest():
+							self.visible_sprites.shake(10)
+							if ch.weapon_contents: DroppedWeapon(ch.rect.center, [self.visible_sprites, self.dropped_weapon_sprites], ch.weapon_contents, self.weapon_graphics[ch.weapon_contents])
+							self.ui.trigger_insight("Insight Gained."); self.player.knowledge = {k: 100 for k in self.player.knowledge}
+					else: self.ui.trigger_insight("Sealed tight.")
 
 	def damage_player(self,amount,attack_type):
 		if self.player.vulnerable:
-			self.player.health -= amount
-			self.player.vulnerable = False
+			self.visible_sprites.shake(15); self.player.health -= amount; self.player.vulnerable = False
 			self.player.hurt_time = pygame.time.get_ticks()
 			self.animation_player.create_particles(attack_type,self.player.rect.center,[self.visible_sprites])
 
-	def trigger_death_particles(self,pos,particle_type):
-		self.animation_player.create_particles(particle_type,pos,self.visible_sprites)
+	def create_attack(self): self.current_attack = Weapon(self.player,[self.visible_sprites,self.attack_sprites])
+	def destroy_attack(self):
+		if hasattr(self, 'current_attack') and self.current_attack: self.current_attack.kill(); self.current_attack = None
+	def create_magic(self,style,strength,cost):
+		if style == 'heal': self.magic_player.heal(self.player,strength,cost,[self.visible_sprites])
+		if style == 'flame': self.magic_player.flame(self.player,cost,[self.visible_sprites,self.attack_sprites])
 
-	def add_exp(self,amount):
-		self.player.knowledge['wildlife'] = min(100, self.player.knowledge['wildlife'] + (amount / 100))
-
-	def toggle_menu(self):
-		self.game_paused = not self.game_paused 
-
-	def toggle_codex(self):
-		self.show_codex = not self.show_codex
+	def study_enemy_logic(self):
+		for s in self.attackable_sprites:
+			if hasattr(s, 'sprite_type') and s.sprite_type == 'enemy' and not s.is_studied:
+				if s.get_player_distance_direction(self.player)[0] < s.notice_radius and not self.player.attacking:
+					s.study_progress += 0.5
+					if s.study_progress >= s.study_target: s.is_studied = True; self.player.knowledge['survival'] = min(100, self.player.knowledge['survival'] + 5); self.ui.trigger_insight(f"Studied {s.monster_name.upper()}.")
 
 	def gating_logic(self, total_k):
-		if total_k >= UNLOCK_REQUIREMENTS['mangrove'] and self.mangrove_cloud.alive():
-			self.mangrove_cloud.kill()
-			self.ui.trigger_insight("The desert heat gives way to damp fog...") # TRIGGER INSIGHT
-		if total_k >= UNLOCK_REQUIREMENTS['winter'] and self.winter_cloud.alive():
-			self.winter_cloud.kill()
-			self.ui.trigger_insight("The fog freezes. Snow begins to fall.") # TRIGGER INSIGHT
+		if total_k >= UNLOCK_REQUIREMENTS['mangrove'] and self.mangrove_cloud.alive(): self.mangrove_cloud.kill(); self.ui.trigger_insight("Heat gives way to damp fog...")
+		if total_k >= UNLOCK_REQUIREMENTS['winter'] and self.winter_cloud.alive(): self.winter_cloud.kill(); self.ui.trigger_insight("The fog freezes. Snow falls.")
+
+	def player_attack_logic(self):
+		if self.attack_sprites:
+			for atk in self.attack_sprites:
+				cols = pygame.sprite.spritecollide(atk,self.attackable_sprites,False)
+				if cols:
+					for target in cols:
+						if target.sprite_type == 'grass': target.kill()
+						elif hasattr(target, 'get_damage'): target.get_damage(self.player,atk.sprite_type)
 
 	def run(self):
-		total_knowledge = sum(self.player.knowledge.values()) / len(self.player.knowledge)
+		tk = sum(self.player.knowledge.values()) / 3
 		self.visible_sprites.custom_draw(self.player)
-		
 		if not self.game_paused and not self.show_codex:
-			self.visible_sprites.update()
-			self.visible_sprites.enemy_update(self.player)
-			self.player_attack_logic()
-			self.study_enemy_logic()
-			self.update_terrain_knowledge()
-			self.interaction_logic() 
-			self.gating_logic(total_knowledge)
+			self.visible_sprites.update(); self.visible_sprites.enemy_update(self.player)
+			self.player_attack_logic(); self.study_enemy_logic(); self.interaction_logic(); self.gating_logic(tk)
+			curr_y = self.player.rect.centery
+			if curr_y < self.furthest_y: self.furthest_y = curr_y; self.player.knowledge['terrain'] = int(min(100, ((self.map_height - curr_y) / self.map_height) * 100))
+		self.ui.display(self.player)
+		if self.game_paused: self.upgrade.display()
+		elif self.show_codex: self.ui.show_knowledge_book(self.player.knowledge)
+		for s in self.visible_sprites:
+			if hasattr(s, 'sprite_type') and s.sprite_type == 'mirage':
+				s.update_visibility(self.player)
+				if 180 < s.alpha < 200: self.ui.trigger_insight("A mirage... Farasat warns of traps.")
 
-		self.ui.display(self.player) # Pass only player
-		
-		if self.game_paused:
-			self.upgrade.display()
-		elif self.show_codex:
-			self.ui.show_knowledge_book(self.player.knowledge)
-
-		for sprite in self.visible_sprites:
-			if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'mirage':
-				sprite.update_visibility(self.player)
-				# Check if mirage is starting to fade
-				if sprite.alpha < 200 and sprite.alpha > 180:
-					self.ui.trigger_insight("Farasat warns... this oasis is but a dream.") # TRIGGER INSIGHT
+	def toggle_menu(self): self.game_paused = not self.game_paused 
+	def toggle_codex(self): self.show_codex = not self.show_codex
+	def trigger_death_particles(self,pos,p_type): self.animation_player.create_particles(p_type,pos,self.visible_sprites)
+	def add_exp(self,amount): self.player.knowledge['wildlife'] = min(100, self.player.knowledge['wildlife'] + (amount / 100))
 
 class YSortCameraGroup(pygame.sprite.Group):
 	def __init__(self):
-		super().__init__()
-		self.display_surface = pygame.display.get_surface()
-		self.half_width = self.display_surface.get_size()[0] // 2
-		self.half_height = self.display_surface.get_size()[1] // 2
-		self.offset = pygame.math.Vector2()
-		self.floor_surf = pygame.image.load('../graphics/tilemap/ground.png').convert()
-		self.floor_rect = self.floor_surf.get_rect(topleft = (0,0))
-
+		super().__init__(); self.display_surface = pygame.display.get_surface(); self.half_width = WIDTH // 2; self.half_height = HEIGTH // 2; self.offset = pygame.math.Vector2()
+		self.floor_surf = pygame.image.load('../graphics/tilemap/ground.png').convert(); self.floor_rect = self.floor_surf.get_rect(topleft = (0,0)); self.shake_amount = 0
+	def shake(self, intensity): self.shake_amount = intensity
 	def custom_draw(self,player):
-		self.offset.x = player.rect.centerx - self.half_width
-		self.offset.y = player.rect.centery - self.half_height
-		floor_offset_pos = self.floor_rect.topleft - self.offset
-		self.display_surface.blit(self.floor_surf,floor_offset_pos)
-		for sprite in sorted(self.sprites(),key = lambda sprite: sprite.rect.centery):
-			offset_pos = sprite.rect.topleft - self.offset
-			self.display_surface.blit(sprite.image,offset_pos)
-
+		self.offset.x = player.rect.centerx - self.half_width; self.offset.y = player.rect.centery - self.half_height
+		if self.shake_amount > 0: self.offset.x += randint(-self.shake_amount, self.shake_amount); self.offset.y += randint(-self.shake_amount, self.shake_amount); self.shake_amount -= 1
+		self.display_surface.blit(self.floor_surf, self.floor_rect.topleft - self.offset)
+		for s in sorted(self.sprites(),key = lambda s: s.rect.centery): self.display_surface.blit(s.image, s.rect.topleft - self.offset)
 	def enemy_update(self,player):
-		enemy_sprites = [sprite for sprite in self.sprites() if hasattr(sprite,'sprite_type') and sprite.sprite_type == 'enemy']
-		for enemy in enemy_sprites:
-			enemy.enemy_update(player)
+		for e in [s for s in self.sprites() if hasattr(s,'sprite_type') and s.sprite_type == 'enemy']: e.enemy_update(player)

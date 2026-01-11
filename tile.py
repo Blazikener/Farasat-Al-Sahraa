@@ -40,7 +40,6 @@ class DroppedWeapon(pygame.sprite.Sprite):
 		self.sprite_type = 'dropped_weapon'
 		self.weapon_name = weapon_name
 		self.image = surface
-		
 		self.rect = self.image.get_rect(center = pos)
 		self.pos = pygame.math.Vector2(pos)
 		self.target_pos = pygame.math.Vector2(pos) + pygame.math.Vector2(randint(-40,40), randint(30,70))
@@ -70,19 +69,22 @@ class CloudBarrier(pygame.sprite.Sprite):
 			raw_cloud = pygame.image.load('../graphics/ui/cloud.png').convert_alpha()
 			self.cloud_surf = pygame.transform.scale(raw_cloud, (320, 180)) 
 		except:
-			self.cloud_surf = pygame.Surface((320, 180))
-			self.cloud_surf.fill('white')
-			self.cloud_surf.set_alpha(150)
+			self.cloud_surf = pygame.Surface((320, 180)); self.cloud_surf.fill('white'); self.cloud_surf.set_alpha(150)
 
-		world_width = 5000 
-		self.image = pygame.Surface((world_width, height), pygame.SRCALPHA)
-		
-		for x in range(0, world_width, 320):
-			for y in range(0, height, 180):
-				self.image.blit(self.cloud_surf, (x, y))
-		
+		self.width = 5000 
+		self.height = height
+		self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
 		self.rect = self.image.get_rect(topleft = (-500, y_pos))
 		self.hitbox = self.rect.inflate(0, 0)
+		self.offset_x = 0
+
+	def update(self):
+		self.offset_x += 0.5 
+		if self.offset_x >= 320: self.offset_x = 0
+		self.image.fill((0,0,0,0))
+		for x in range(int(-self.offset_x), self.width, 320):
+			for y in range(0, self.height, 180):
+				self.image.blit(self.cloud_surf, (x, y))
 
 class Mirage(pygame.sprite.Sprite):
 	def __init__(self,pos,groups,surface):
@@ -94,17 +96,11 @@ class Mirage(pygame.sprite.Sprite):
 		self.alpha = 255
 
 	def update_visibility(self, player):
-		# Calculate distance between player and the oasis
 		p_vec = pygame.math.Vector2(player.rect.center)
 		m_vec = pygame.math.Vector2(self.rect.center)
 		distance = (p_vec - m_vec).magnitude()
-
-		# FADING LOGIC: Keeps it as a mirage that disappears when close
 		if distance < 400:
-			# Gradually decrease alpha as the player gets closer
 			alpha = max(0, min(255, (distance - 100) / 300 * 255))
 			self.alpha = int(alpha)
-		else:
-			self.alpha = 255
-		
+		else: self.alpha = 255
 		self.image.set_alpha(int(self.alpha))

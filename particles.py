@@ -20,7 +20,7 @@ class AnimationPlayer:
 
 			# monster deaths
 			'squid': import_folder('../graphics/particles/smoke_orange'),
-			'raccoon': import_folder('../graphics/particles/raccoon'),
+			'ringtail': import_folder('../graphics/particles/raccoon'), # Point to raccoon folder
 			'spirit': import_folder('../graphics/particles/nova'),
 			'bamboo': import_folder('../graphics/particles/bamboo'),
 			
@@ -41,9 +41,9 @@ class AnimationPlayer:
 				)
 			}
 
-		# Load only required Tracking Frames for Farasat theme
+		# Updated tracking frames keys
 		self.frames['bamboo_track'] = import_folder('../graphics/particles/tracks/bamboo')
-		self.frames['raccoon_track'] = import_folder('../graphics/particles/tracks/raccoon')
+		self.frames['ringtail_track'] = import_folder('../graphics/particles/tracks/raccoon')
 
 	def reflect_images(self,frames):
 		new_frames = []
@@ -69,14 +69,13 @@ class ParticleEffect(pygame.sprite.Sprite):
 		self.animation_speed = 0.15
 		self.frames = animation_frames
 		
-		# Realistic scaling and transparency for tracks
 		if 'track' in self.sprite_type:
 			self.frames = []
 			for frame in animation_frames:
 				scaled_frame = pygame.transform.scale(frame, (TILESIZE // 3, TILESIZE // 3))
-				scaled_frame.set_alpha(150) # Start semi-transparent
+				scaled_frame.set_alpha(150) 
 				self.frames.append(scaled_frame)
-			self.animation_speed = 0.02 # Make them last longer on screen
+			self.animation_speed = 0.02 
 
 		self.image = self.frames[self.frame_index]
 		self.rect = self.image.get_rect(center = pos)
@@ -88,7 +87,6 @@ class ParticleEffect(pygame.sprite.Sprite):
 		else:
 			self.image = self.frames[int(self.frame_index)]
 			
-			# Perfecting the Fade: Gradually disappear
 			if 'track' in self.sprite_type:
 				alpha = 150 - (self.frame_index / len(self.frames)) * 150
 				self.image.set_alpha(int(alpha))
