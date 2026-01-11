@@ -29,27 +29,27 @@ class Level:
 		self.upgrade = Upgrade(self.player)
 		self.magic_player = MagicPlayer(self.animation_player)
 
-		# --- TRACKING & GATING SETUP ---
-		# Calculates map height based on the floor CSV to scale Terrain Knowledge
+		# --- THREE-ZONE GATING SETUP ---
+		# Map Height calculation for Terrain Knowledge percentage
 		self.map_height = len(import_csv_layout('../map/map_Floor.csv')) * TILESIZE
 		self.furthest_y = self.player.rect.centery 
 		
 		self.cloud_group = pygame.sprite.Group()
 		
-		# Barrier 1: Mangrove (Gated at 30% Total Knowledge)
-		# Positioned at Y=4000
+		# BARRIER 1: Desert -> Mangrove Transition (Bottom Barrier)
+		# Placed at 4000Y. Unlocks when Total Knowledge >= 30%
 		self.mangrove_cloud = CloudBarrier(
 			ZONE_THRESHOLDS['mangrove'], 
-			400, 
+			500, # Height of the cloud bank
 			[self.visible_sprites, self.obstacle_sprites, self.cloud_group], 
 			'mangrove'
 		)
 
-		# Barrier 2: Winter (Gated at 60% Total Knowledge)
-		# Height increased to 1200 to ensure it is visible during the transition from Mangrove
+		# BARRIER 2: Mangrove -> Winter Transition (Top Barrier/Bridge)
+		# Placed at 2000Y. Unlocks when Total Knowledge >= 60%
 		self.winter_cloud = CloudBarrier(
 			ZONE_THRESHOLDS['winter'], 
-			1200, 
+			800, # Taller height to represent the bridge/mountain transition
 			[self.visible_sprites, self.obstacle_sprites, self.cloud_group], 
 			'winter'
 		)
@@ -134,7 +134,7 @@ class Level:
 						self.player.knowledge['survival'] = min(100, self.player.knowledge['survival'] + 5)
 
 	def update_terrain_knowledge(self):
-		"""Updates player knowledge based on the highest vertical point reached."""
+		"""Tracks physical exploration of the map zones."""
 		current_y = self.player.rect.centery
 		if current_y < self.furthest_y:
 			self.furthest_y = current_y
@@ -163,13 +163,14 @@ class Level:
 		self.show_codex = not self.show_codex
 
 	def gating_logic(self, total_k):
-		"""Removes barriers when knowledge requirements are met."""
+		"""Unlocks the cloud barriers as player knowledge grows."""
 		if total_k >= UNLOCK_REQUIREMENTS['mangrove'] and self.mangrove_cloud.alive():
 			self.mangrove_cloud.kill()
 		if total_k >= UNLOCK_REQUIREMENTS['winter'] and self.winter_cloud.alive():
 			self.winter_cloud.kill()
 
 	def run(self):
+		# Calculate current progress for the gating and UI
 		total_knowledge = sum(self.player.knowledge.values()) / len(self.player.knowledge)
 		self.visible_sprites.custom_draw(self.player)
 		
@@ -178,15 +179,15 @@ class Level:
 			self.visible_sprites.enemy_update(self.player)
 			self.player_attack_logic()
 			self.study_enemy_logic()
-			self.update_terrain_knowledge() #
-			self.gating_logic(total_knowledge) #
+			self.update_terrain_knowledge()
+			self.gating_logic(total_knowledge)
 
 		self.ui.display(self.player, total_knowledge)
 		
 		if self.game_paused:
 			self.upgrade.display()
 		elif self.show_codex:
-			self.ui.show_knowledge_book(self.player.knowledge) #
+			self.ui.show_knowledge_book(self.player.knowledge)
 
 		for sprite in self.visible_sprites:
 			if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'mirage':
