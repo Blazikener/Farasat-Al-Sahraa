@@ -10,19 +10,18 @@ class Game:
 		pygame.display.set_caption('Farasat Al Sahraa')
 		self.clock = pygame.time.Clock()
 		self.game_active = False
+		self.game_over = False # New state flag
 		self.level = Level()
 		self.menu_options = ['START JOURNEY', 'QUIT']
 		self.menu_index = 0
 		
 		# --- MUSIC SETUP ---
-		# This attempts to load 'main.ogg' from the audio folder.
-		# Ideally use .ogg or .mp3 for background music.
 		try:
 			pygame.mixer.music.load('../audio/main.ogg') 
-			pygame.mixer.music.set_volume(0.5) # Set volume (0.0 to 1.0)
-			pygame.mixer.music.play(loops=-1) # -1 loops the music indefinitely
+			pygame.mixer.music.set_volume(0.5) 
+			pygame.mixer.music.play(loops=-1) 
 		except Exception as e:
-			print(f"Music file not found or could not load: {e}")
+			print(f"Music file not found: {e}")
 		# -------------------
 
 		# Introduction Logic
@@ -78,7 +77,14 @@ class Game:
 					pygame.quit()
 					sys.exit()
 				
-				if not self.game_active:
+				if self.game_over:
+					# RESTART LOGIC
+					if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+						self.level = Level() # Reset the world
+						self.game_over = False # Remove death flag
+						self.game_active = True # Ensure game is active
+
+				elif not self.game_active:
 					if event.type == pygame.KEYDOWN:
 						if event.key == pygame.K_UP:
 							self.menu_index = (self.menu_index - 1) % len(self.menu_options)
@@ -86,18 +92,20 @@ class Game:
 							self.menu_index = (self.menu_index + 1) % len(self.menu_options)
 						elif event.key == pygame.K_RETURN:
 							if self.menu_options[self.menu_index] == 'START JOURNEY':
+								self.level = Level() # Fresh start
 								self.game_active = True
+								self.game_over = False
 							else:
 								pygame.quit()
 								sys.exit()
 				else:
 					if event.type == pygame.KEYDOWN:
-						if self.show_tutorial: # Handle intro dismissal
+						if self.show_tutorial: 
 							self.show_tutorial = False 
-						elif self.level.active_popup: # Popup dismissal
+						elif self.level.active_popup: 
 							if event.key == pygame.K_RETURN:
 								self.level.active_popup = None
-						elif self.level.shop_active: # Shop Controls
+						elif self.level.shop_active: 
 							if event.key == pygame.K_UP:
 								self.level.shop_index = max(1, self.level.shop_index - 1)
 							if event.key == pygame.K_DOWN:
@@ -125,9 +133,23 @@ class Game:
 			
 			if self.game_active:
 				self.screen.fill('black')
-				self.level.run()
-				if self.show_tutorial:
-					self.level.ui.show_tutorial() # Overlay drawn on top
+				
+				if self.game_over:
+					# DRAW FROZEN WORLD
+					# We draw the sprites manually but do NOT call update()
+					self.level.visible_sprites.custom_draw(self.level.player)
+					# DRAW DEATH UI
+					self.level.ui.show_game_over()
+				else:
+					# DRAW AND UPDATE LIVING WORLD
+					self.level.run()
+					
+					# CHECK DEATH CONDITION
+					if self.level.player.health <= 0:
+						self.game_over = True
+						
+					if self.show_tutorial:
+						self.level.ui.show_tutorial() 
 			else:
 				self.draw_menu()
 			pygame.display.update()

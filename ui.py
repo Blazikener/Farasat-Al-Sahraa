@@ -9,6 +9,9 @@ class UI:
 		self.title_font = pygame.font.Font(UI_FONT, 36)
 		self.insight_font = pygame.font.Font(UI_FONT, 24)
 		
+		# Game Over specific font (larger)
+		self.game_over_font = pygame.font.Font(UI_FONT, 60)
+		
 		self.health_bar_rect = pygame.Rect(10, 10, HEALTH_BAR_WIDTH, BAR_HEIGHT)
 		self.energy_bar_rect = pygame.Rect(10, 34, ENERGY_BAR_WIDTH, BAR_HEIGHT)
 
@@ -24,17 +27,14 @@ class UI:
 			path = magic['graphic']
 			self.magic_graphics.append(pygame.image.load(path).convert_alpha())
 		
-		# --- UPDATED SHOP ICON LOADING ---
+		# Load Shop Icon
 		try:
-			# Load the 16x16 icon from the objects folder
 			self.shop_icon_surf = pygame.image.load('../graphics/objects/shop_icon.png').convert_alpha()
-			# Scale it up to 40x40 so it looks good in the UI box
 			self.shop_icon_surf = pygame.transform.scale(self.shop_icon_surf, (40, 40))
 		except Exception as e:
-			print(f"UI Warning: Could not load shop_icon.png. {e}")
 			self.shop_icon_surf = pygame.Surface((40, 40))
 			self.shop_icon_surf.fill('gold')
-		# ---------------------------------
+			print(f"UI Error: {e}")
 
 		# Insight Message System
 		self.message = ""
@@ -112,7 +112,6 @@ class UI:
 		shop_rect = pygame.Rect(WIDTH//4, HEIGTH//10, WIDTH//2, HEIGTH*0.8)
 		self.draw_parchment(shop_rect)
 		
-		# Use midtop to center the text perfectly relative to the shop window
 		title_surf = self.title_font.render("THE DESERT TRADER", False, '#5c4033')
 		title_rect = title_surf.get_rect(midtop = (WIDTH//2, shop_rect.top + 40))
 		self.display_surface.blit(title_surf, title_rect)
@@ -245,23 +244,43 @@ class UI:
 			pygame.draw.rect(self.display_surface, UI_BORDER_COLOR, rect, 3)
 			self.display_surface.blit(self.font.render(key, False, 'gold'), (rect.right - 22, rect.bottom - 22))
 		
-		# --- DYNAMIC SCRAPS BOX ---
+		# Scraps HUD
 		scraps_text_surf = self.font.render(f"SCRAPS: {int(player.exp)}", False, 'white')
-		
-		# Dynamic Width: Minimum 200px, but expands if text is longer
 		box_width = max(200, scraps_text_surf.get_width() + 60)
-		
-		# Anchor the box to the right side of the screen
 		icon_rect = pygame.Rect(WIDTH - box_width - 20, 10, box_width, 50)
 		
 		pygame.draw.rect(self.display_surface, UI_BG_COLOR, icon_rect)
 		pygame.draw.rect(self.display_surface, 'gold', icon_rect, 2)
 		self.display_surface.blit(self.shop_icon_surf, (icon_rect.left + 5, icon_rect.top + 5))
 		
-		# Center text vertically in the box
 		text_rect = scraps_text_surf.get_rect(midleft = (icon_rect.left + 50, icon_rect.centery))
 		self.display_surface.blit(scraps_text_surf, text_rect)
-		# --------------------------
 
 		self.draw_insight_message()
 		self.draw_transition()
+
+	# --- NEW GAME OVER SCREEN ---
+	def show_game_over(self):
+		# 1. Dark Red/Black Overlay
+		overlay = pygame.Surface((WIDTH, HEIGTH))
+		overlay.set_alpha(200)
+		overlay.fill((40, 5, 5)) # Deep red/black color
+		self.display_surface.blit(overlay, (0,0))
+
+		# 2. Main "LOST" Text with Shadow
+		title_text = "LOST TO THE SANDS"
+		shadow_surf = self.game_over_font.render(title_text, True, 'black')
+		text_surf = self.game_over_font.render(title_text, True, '#8b0000') # Blood red
+		
+		# Draw shadow offset
+		center_x, center_y = WIDTH // 2, HEIGTH // 2
+		self.display_surface.blit(shadow_surf, shadow_surf.get_rect(center = (center_x + 4, center_y - 46)))
+		self.display_surface.blit(text_surf, text_surf.get_rect(center = (center_x, center_y - 50)))
+
+		# 3. Pulsing "Restart" Text
+		self.pulse_timer += 0.1
+		alpha = abs(sin(self.pulse_timer)) * 255
+		
+		restart_surf = self.font.render("Press SPACE to Rise Again", True, 'gold')
+		restart_surf.set_alpha(int(alpha))
+		self.display_surface.blit(restart_surf, restart_surf.get_rect(center = (center_x, center_y + 50)))

@@ -9,13 +9,6 @@ class Player(Entity):
 		self.image = pygame.image.load('../graphics/test/player.png').convert_alpha()
 		self.rect = self.image.get_rect(topleft = pos)
 		self.hitbox = self.rect.inflate(-6,HITBOX_OFFSET['player'])
-		# player.py -> Inside __init__
-		self.stats = {'health': 100,'energy':60,'attack': 10,'magic': 4,'speed': 5}
-
-		# RESTORE THESE THREE LINES TO FIX THE CRASH:
-		self.max_stats = {'health': 300, 'energy': 140, 'attack': 20, 'magic' : 10, 'speed': 10}
-		self.upgrade_cost = {'health': 100, 'energy': 100, 'attack': 100, 'magic' : 100, 'speed': 100}
-		self.health = self.stats['health']
 
 		# graphics setup
 		self.import_player_assets()
@@ -49,12 +42,16 @@ class Player(Entity):
 		self.can_switch_magic = True
 		self.magic_switch_time = None
 
-		# stats
-		self.stats = {'health': 100,'energy':60,'attack': 10,'magic': 4,'speed': 5}
-		self.max_stats = {'health': 300, 'energy': 140, 'attack': 20, 'magic' : 10, 'speed': 10}
+		# --- UPDATED STATS (10x HEALTH) ---
+		# Health increased: 100 -> 1000
+		self.stats = {'health': 1000,'energy':60,'attack': 10,'magic': 4,'speed': 5}
+		# Max Health increased: 300 -> 3000
+		self.max_stats = {'health': 3000, 'energy': 140, 'attack': 20, 'magic' : 10, 'speed': 10}
 		self.upgrade_cost = {'health': 100, 'energy': 100, 'attack': 100, 'magic' : 100, 'speed': 100}
+		
 		self.health = self.stats['health']
 		self.energy = self.stats['energy']
+		# ----------------------------------
 
 		# damage timer
 		self.vulnerable = True
