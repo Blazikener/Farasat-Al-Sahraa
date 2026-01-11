@@ -7,17 +7,22 @@ class UI:
         self.display_surface = pygame.display.get_surface()
         self.font = pygame.font.Font(UI_FONT, UI_FONT_SIZE)
         self.title_font = pygame.font.Font(UI_FONT, 32)
+        self.insight_font = pygame.font.Font(UI_FONT, 24)
 
-        # Bar setup (Health and Energy)
+        # Bar setup
         self.health_bar_rect = pygame.Rect(10, 10, HEALTH_BAR_WIDTH, BAR_HEIGHT)
         self.energy_bar_rect = pygame.Rect(10, 34, ENERGY_BAR_WIDTH, BAR_HEIGHT)
 
-        # Load assets for Weapon and Magic icons
+        # Load assets
         self.weapon_graphics = [pygame.image.load(w['graphic']).convert_alpha() for w in weapon_data.values()]
         self.magic_graphics = [pygame.image.load(m['graphic']).convert_alpha() for m in magic_data.values()]
 
+        # Insight Message System
+        self.message = ""
+        self.message_time = 0
+        self.message_duration = 3000 # 3 seconds
+
     def show_bar(self, current, max_amount, bg_rect, color):
-        """Draws the standard HUD bars (Health/Energy)."""
         pygame.draw.rect(self.display_surface, UI_BG_COLOR, bg_rect)
         ratio = current / max_amount
         current_rect = bg_rect.copy()
@@ -25,24 +30,46 @@ class UI:
         pygame.draw.rect(self.display_surface, color, current_rect)
         pygame.draw.rect(self.display_surface, UI_BORDER_COLOR, bg_rect, 3)
 
+    def trigger_insight(self, text):
+        """Sets the message and resets the timer."""
+        self.message = text
+        self.message_time = pygame.time.get_ticks()
+
+    def draw_insight_message(self):
+        """Draws the 'Interpreting the Screen' text with a fade effect."""
+        current_time = pygame.time.get_ticks()
+        if self.message and current_time - self.message_time < self.message_duration:
+            # Calculate Alpha (fades out in the last second)
+            elapsed = current_time - self.message_time
+            alpha = 255
+            if elapsed > 2000:
+                alpha = 255 - int(((elapsed - 2000) / 1000) * 255)
+
+            # Render text
+            text_surf = self.insight_font.render(f"INSIGHT: {self.message}", False, 'gold')
+            text_surf.set_alpha(alpha)
+            text_rect = text_surf.get_rect(center = (WIDTH // 2, HEIGTH - 100))
+            
+            # Draw a subtle background box
+            bg_rect = text_rect.inflate(30, 20)
+            bg_surf = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+            bg_surf.fill((0, 0, 0, int(alpha * 0.6)))
+            self.display_surface.blit(bg_surf, bg_rect)
+            self.display_surface.blit(text_surf, text_rect)
+
     def show_knowledge_book(self, knowledge):
-        """Draws the Codex overlay with knowledge progress bars."""
-        # Dim the background with an overlay
         overlay = pygame.Surface((WIDTH, HEIGTH))
         overlay.set_alpha(200)
         overlay.fill('#1a100a')
         self.display_surface.blit(overlay, (0,0))
 
-        # Main Book Panel
         book_rect = pygame.Rect(WIDTH//4, HEIGTH//8, WIDTH//2, HEIGTH*0.75)
         pygame.draw.rect(self.display_surface, '#3d2b1f', book_rect)
         pygame.draw.rect(self.display_surface, 'gold', book_rect, 5)
 
-        # Codex Title
         title_surf = self.title_font.render("CODEX OF FARASAT", False, 'gold')
         self.display_surface.blit(title_surf, title_surf.get_rect(midtop = (WIDTH//2, book_rect.top + 30)))
 
-        # Knowledge Stats Layout
         y = book_rect.top + 100
         total_k = 0
         bar_width = book_rect.width - 100
@@ -51,32 +78,21 @@ class UI:
         
         for category, value in knowledge.items():
             total_k += value
-            
-            # Display Category Name and Percentage
             text = f"{category.upper()}: {int(value)}%"
             self.display_surface.blit(self.font.render(text, False, 'white'), (bar_x, y))
             y += 30
             
-            # Draw Progress Bar Background
             bar_rect = pygame.Rect(bar_x, y, bar_width, bar_height)
             pygame.draw.rect(self.display_surface, UI_BG_COLOR, bar_rect)
             
-            # Draw Progress Bar Fill with Theme Colors
             progress_rect = bar_rect.copy()
             progress_rect.width = bar_width * (value / 100)
-            
-            if category == 'terrain': bar_color = '#8B4513'  # Brown for terrain
-            elif category == 'wildlife': bar_color = '#228B22'  # Green for wildlife
-            else: bar_color = '#FFD700'  # Gold for survival
-            
+            bar_color = '#8B4513' if category == 'terrain' else '#228B22' if category == 'wildlife' else '#FFD700'
             pygame.draw.rect(self.display_surface, bar_color, progress_rect)
             pygame.draw.rect(self.display_surface, 'white', bar_rect, 2)
             y += 50
 
-        # Calculate Average Knowledge
         avg_k = total_k / 3
-        
-        # Total Knowledge Bar
         total_bar_rect = pygame.Rect(bar_x, y + 20, bar_width, bar_height + 5)
         pygame.draw.rect(self.display_surface, UI_BG_COLOR, total_bar_rect)
         total_progress_rect = total_bar_rect.copy()
@@ -84,58 +100,23 @@ class UI:
         pygame.draw.rect(self.display_surface, 'gold', total_progress_rect)
         pygame.draw.rect(self.display_surface, 'gold', total_bar_rect, 3)
 
-        # Progression Requirement Hints (Kept for guidance)
-        if avg_k < UNLOCK_REQUIREMENTS['mangrove']:
-            hint = f"Unlock Next Zone: {int(avg_k)}% / {UNLOCK_REQUIREMENTS['mangrove']}%"
-        elif avg_k < UNLOCK_REQUIREMENTS['winter']:
-            hint = f"Unlock Next Zone: {int(avg_k)}% / {UNLOCK_REQUIREMENTS['winter']}%"
-        else:
-            hint = "Peak Knowledge Reached!"
-        
-        hint_surf = self.font.render(hint, False, 'gold')
-        self.display_surface.blit(hint_surf, hint_surf.get_rect(center = (WIDTH//2, book_rect.bottom - 80)))
-
-        # Navigation hint
-        close_hint = pygame.font.Font(UI_FONT, 16).render("Press B to close", False, '#888888')
-        self.display_surface.blit(close_hint, close_hint.get_rect(center = (WIDTH//2, book_rect.bottom - 40)))
-
-    def weapon_overlay(self, weapon_index, knowledge_score, weapon_name):
-        """Displays selected weapon icon."""
+    def weapon_overlay(self, weapon_index):
         bg_rect = pygame.Rect(10, 630, ITEM_BOX_SIZE, ITEM_BOX_SIZE)
         pygame.draw.rect(self.display_surface, UI_BG_COLOR, bg_rect)
-        
-        # Weapons are now unlocked by looting, so we show the graphic if owned
         weapon_surf = self.weapon_graphics[weapon_index]
         self.display_surface.blit(weapon_surf, weapon_surf.get_rect(center = bg_rect.center))
-
         pygame.draw.rect(self.display_surface, UI_BORDER_COLOR, bg_rect, 3)
-        self.display_surface.blit(self.font.render("Q", False, 'gold'), (bg_rect.left + 5, bg_rect.top + 5))
 
     def magic_overlay(self, magic_index):
-        """Displays selected magic overlay."""
         bg_rect = pygame.Rect(100, 630, ITEM_BOX_SIZE, ITEM_BOX_SIZE)
         pygame.draw.rect(self.display_surface, UI_BG_COLOR, bg_rect)
-        
         magic_surf = self.magic_graphics[magic_index]
         self.display_surface.blit(magic_surf, magic_surf.get_rect(center = bg_rect.center))
-        
         pygame.draw.rect(self.display_surface, UI_BORDER_COLOR, bg_rect, 3)
-        self.display_surface.blit(self.font.render("E", False, 'gold'), (bg_rect.left + 5, bg_rect.top + 5))
 
-    def codex_hint(self):
-        """Displays the hotkey hint for the Codex."""
-        hint_rect = pygame.Rect(WIDTH - 150, 10, 140, 30)
-        pygame.draw.rect(self.display_surface, UI_BG_COLOR, hint_rect)
-        pygame.draw.rect(self.display_surface, UI_BORDER_COLOR, hint_rect, 2)
-        
-        hint_text = self.font.render("B - Codex", False, 'gold')
-        self.display_surface.blit(hint_text, hint_text.get_rect(center = hint_rect.center))
-
-    def display(self, player, total_knowledge):
-        """Main method to draw all HUD elements."""
-        weapon_name = list(weapon_data.keys())[player.weapon_index]
+    def display(self, player):
         self.show_bar(player.health, player.stats['health'], self.health_bar_rect, HEALTH_COLOR)
         self.show_bar(player.energy, player.stats['energy'], self.energy_bar_rect, ENERGY_COLOR)
-        self.weapon_overlay(player.weapon_index, total_knowledge, weapon_name)
+        self.weapon_overlay(player.weapon_index)
         self.magic_overlay(player.magic_index)
-        self.codex_hint()
+        self.draw_insight_message() # Always draw the message layer

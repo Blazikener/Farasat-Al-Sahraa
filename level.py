@@ -3,7 +3,7 @@ from settings import *
 from tile import Tile, Mirage, CloudBarrier, TreasureChest, Key, DroppedWeapon
 from player import Player
 from support import *
-from random import choice, randint, random # Added random for spawn filtering
+from random import choice, randint, random
 from weapon import Weapon
 from ui import UI
 from enemy import Enemy
@@ -17,7 +17,7 @@ class Level:
 		self.game_paused = False
 		self.show_codex = False
 
-		# Sprite Groups
+		# Groups
 		self.visible_sprites = YSortCameraGroup()
 		self.obstacle_sprites = pygame.sprite.Group()
 		self.attack_sprites = pygame.sprite.Group()
@@ -33,14 +33,12 @@ class Level:
 		self.upgrade = Upgrade(self.player)
 		self.magic_player = MagicPlayer(self.animation_player)
 
-		# Progress & Gating
 		self.map_height = len(import_csv_layout('../map/map_Floor.csv')) * TILESIZE
 		self.furthest_y = self.player.rect.centery
-		self.cloud_group = pygame.sprite.Group()
 		
 		# Barriers
-		self.mangrove_cloud = CloudBarrier(ZONE_THRESHOLDS['mangrove'], 500, [self.visible_sprites, self.obstacle_sprites, self.cloud_group], 'mangrove')
-		self.winter_cloud = CloudBarrier(ZONE_THRESHOLDS['winter'], 800, [self.visible_sprites, self.obstacle_sprites, self.cloud_group], 'winter')
+		self.mangrove_cloud = CloudBarrier(ZONE_THRESHOLDS['mangrove'], 500, [self.visible_sprites, self.obstacle_sprites], 'mangrove')
+		self.winter_cloud = CloudBarrier(ZONE_THRESHOLDS['winter'], 800, [self.visible_sprites, self.obstacle_sprites], 'winter')
 
 		self.player_has_key = False 
 
@@ -51,9 +49,7 @@ class Level:
 			'object': import_csv_layout('../map/map_Objects.csv'),
 			'entities': import_csv_layout('../map/map_Entities.csv')
 		}
-		
 		self.weapon_graphics = {name: pygame.image.load(data['graphic']).convert_alpha() for name, data in weapon_data.items()}
-		
 		graphics = {
 			'grass': import_folder('../graphics/Grass'),
 			'objects': import_folder('../graphics/objects'),
@@ -63,8 +59,7 @@ class Level:
 			'key': pygame.image.load('../graphics/objects/key.png').convert_alpha()
 		}
 
-		# CONFIGURATION: Set the enemy spawn rate (0.4 = 40% of enemies from CSV will spawn)
-		enemy_spawn_rate = 0.29 
+		enemy_spawn_rate = 0.4 
 
 		for style,layout in layouts.items():
 			for row_index,row in enumerate(layout):
@@ -93,22 +88,26 @@ class Level:
 							if col == '394':
 								self.player = Player((x,y),[self.visible_sprites],self.obstacle_sprites,self.create_attack,self.destroy_attack,self.create_magic)
 							else:
-								# ENEMY REDUCTION LOGIC: Only spawn if the random check passes
 								if random() < enemy_spawn_rate:
 									monster_name = 'bamboo' if col == '390' else 'spirit' if col == '391' else 'raccoon' if col == '392' else 'squid'
 									Enemy(monster_name,(x,y),[self.visible_sprites,self.attackable_sprites],self.obstacle_sprites,self.damage_player,self.trigger_death_particles,self.add_exp,self.animation_player)
 
 	def interaction_logic(self):
+		# 1. Key Pickup
 		for key_sprite in self.key_sprites:
 			if key_sprite.hitbox.colliderect(self.player.hitbox):
 				key_sprite.kill()
 				self.player_has_key = True
+				self.ui.trigger_insight("A rusted key... what does it unlock?") # TRIGGER INSIGHT
 
+		# 2. Weapon Pickup
 		for dropped_weapon in self.dropped_weapon_sprites:
 			if dropped_weapon.hitbox.colliderect(self.player.hitbox.inflate(10,10)):
 				self.player.add_weapon(dropped_weapon.weapon_name)
 				dropped_weapon.kill()
+				self.ui.trigger_insight(f"Obtained {dropped_weapon.weapon_name.upper()}!") # TRIGGER INSIGHT
 
+		# 3. Chest Interaction
 		keys_pressed = pygame.key.get_pressed()
 		for sprite in self.treasure_sprites:
 			if sprite.hitbox.colliderect(self.player.hitbox.inflate(30,30)):
@@ -118,9 +117,13 @@ class Level:
 							if sprite.weapon_contents:
 								weapon_surf = self.weapon_graphics[sprite.weapon_contents]
 								DroppedWeapon(sprite.rect.center, [self.visible_sprites, self.dropped_weapon_sprites], sprite.weapon_contents, weapon_surf)
+							
+							self.ui.trigger_insight("The lock yields. A gift from the sands.") # TRIGGER INSIGHT
 							self.player.knowledge['terrain'] = 100
 							self.player.knowledge['survival'] = 100
 							self.player.knowledge['wildlife'] = 100
+					else:
+						self.ui.trigger_insight("The chest is sealed tight.") # TRIGGER INSIGHT
 
 	def create_attack(self):
 		self.current_attack = Weapon(self.player,[self.visible_sprites,self.attack_sprites])
@@ -160,6 +163,7 @@ class Level:
 					if sprite.study_progress >= sprite.study_target:
 						sprite.is_studied = True
 						self.player.knowledge['survival'] = min(100, self.player.knowledge['survival'] + 5)
+						self.ui.trigger_insight(f"Interpreted {sprite.monster_name.upper()} behavior.") # TRIGGER INSIGHT
 
 	def update_terrain_knowledge(self):
 		current_y = self.player.rect.centery
@@ -192,8 +196,10 @@ class Level:
 	def gating_logic(self, total_k):
 		if total_k >= UNLOCK_REQUIREMENTS['mangrove'] and self.mangrove_cloud.alive():
 			self.mangrove_cloud.kill()
+			self.ui.trigger_insight("The desert heat gives way to damp fog...") # TRIGGER INSIGHT
 		if total_k >= UNLOCK_REQUIREMENTS['winter'] and self.winter_cloud.alive():
 			self.winter_cloud.kill()
+			self.ui.trigger_insight("The fog freezes. Snow begins to fall.") # TRIGGER INSIGHT
 
 	def run(self):
 		total_knowledge = sum(self.player.knowledge.values()) / len(self.player.knowledge)
@@ -208,7 +214,7 @@ class Level:
 			self.interaction_logic() 
 			self.gating_logic(total_knowledge)
 
-		self.ui.display(self.player, total_knowledge)
+		self.ui.display(self.player) # Pass only player
 		
 		if self.game_paused:
 			self.upgrade.display()
@@ -218,6 +224,9 @@ class Level:
 		for sprite in self.visible_sprites:
 			if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'mirage':
 				sprite.update_visibility(self.player)
+				# Check if mirage is starting to fade
+				if sprite.alpha < 200 and sprite.alpha > 180:
+					self.ui.trigger_insight("Farasat warns... this oasis is but a dream.") # TRIGGER INSIGHT
 
 class YSortCameraGroup(pygame.sprite.Group):
 	def __init__(self):
