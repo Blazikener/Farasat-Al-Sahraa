@@ -16,6 +16,7 @@ class Level:
 		self.display_surface = pygame.display.get_surface()
 		self.game_paused = False
 		self.show_codex = False
+		self.active_popup = None # Stores the current tutorial content
 
 		# Groups
 		self.visible_sprites = YSortCameraGroup()
@@ -78,6 +79,24 @@ class Level:
 									m_name = 'bamboo' if col == '390' else 'spirit' if col == '391' else 'ringtail' if col == '392' else 'squid'
 									Enemy(m_name,(x,y),[self.visible_sprites,self.attackable_sprites],self.obstacle_sprites,self.damage_player,self.trigger_death_particles,self.add_exp,self.animation_player)
 
+	def check_tutorial_triggers(self):
+		"""Checks for Situational Insight moments."""
+		if self.game_paused or self.show_codex: return
+
+		# 1. First time seeing a Mirage
+		for sprite in self.visible_sprites:
+			if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'mirage' and 'mirage' not in self.player.seen_tutorials:
+				if (pygame.math.Vector2(self.player.rect.center) - pygame.math.Vector2(sprite.rect.center)).magnitude() < 300:
+					self.active_popup = ("FARASAT WARNING", ["You sense a shimmer in the distance.", "Mirages are tricks of the desert heat.", "They fade as you approach.", "Do not rely on your eyes alone."])
+					self.player.seen_tutorials.add('mirage')
+
+		# 2. First time seeing an Enemy (Survival/Study)
+		for sprite in self.attackable_sprites:
+			if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'enemy' and 'study' not in self.player.seen_tutorials:
+				if (pygame.math.Vector2(self.player.rect.center) - pygame.math.Vector2(sprite.rect.center)).magnitude() < 400:
+					self.active_popup = ("THE STUDY MECHANIC", ["Observe enemies from a distance to gain", "Survival Insight. Progression is found", "through understanding, not just combat.", "Watch their patterns carefully."])
+					self.player.seen_tutorials.add('study')
+
 	def interaction_logic(self):
 		for key in self.key_sprites:
 			if key.hitbox.colliderect(self.player.hitbox): key.kill(); self.player_has_key = True; self.ui.trigger_insight("A key found in the sands.")
@@ -130,18 +149,24 @@ class Level:
 	def run(self):
 		tk = sum(self.player.knowledge.values()) / 3
 		self.visible_sprites.custom_draw(self.player)
-		if not self.game_paused and not self.show_codex:
+		
+		if not self.game_paused and not self.show_codex and not self.active_popup:
 			self.visible_sprites.update(); self.visible_sprites.enemy_update(self.player)
 			self.player_attack_logic(); self.study_enemy_logic(); self.interaction_logic(); self.gating_logic(tk)
+			self.check_tutorial_triggers() # Check for pop-ups
+			
 			curr_y = self.player.rect.centery
 			if curr_y < self.furthest_y: self.furthest_y = curr_y; self.player.knowledge['terrain'] = int(min(100, ((self.map_height - curr_y) / self.map_height) * 100))
+		
 		self.ui.display(self.player)
+		
 		if self.game_paused: self.upgrade.display()
 		elif self.show_codex: self.ui.show_knowledge_book(self.player.knowledge)
+		elif self.active_popup: self.ui.show_popup(self.active_popup[0], self.active_popup[1])
+
 		for s in self.visible_sprites:
 			if hasattr(s, 'sprite_type') and s.sprite_type == 'mirage':
 				s.update_visibility(self.player)
-				if 180 < s.alpha < 200: self.ui.trigger_insight("A mirage... Farasat warns of traps.")
 
 	def toggle_menu(self): self.game_paused = not self.game_paused 
 	def toggle_codex(self): self.show_codex = not self.show_codex

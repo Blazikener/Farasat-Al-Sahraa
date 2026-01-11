@@ -23,8 +23,9 @@ class Player(Entity):
 		# Farasat Knowledge System
 		self.knowledge = {'terrain': 0, 'wildlife': 0, 'survival': 0}
 		self.exp = 0 
+		self.seen_tutorials = set() # Tracks which pop-ups have been shown
 
-		# Weapon System (Restricted to what you find)
+		# Weapon System
 		self.unlocked_weapons = ['sword'] 
 		self.create_attack = create_attack
 		self.destroy_attack = destroy_attack
@@ -68,7 +69,6 @@ class Player(Entity):
 			self.animations[animation] = import_folder(full_path)
 
 	def add_weapon(self, weapon_name):
-		# Adds found weapon to arsenal
 		if weapon_name not in self.unlocked_weapons:
 			self.unlocked_weapons.append(weapon_name)
 
@@ -108,7 +108,6 @@ class Player(Entity):
 				cost = list(magic_data.values())[self.magic_index]['cost']
 				self.create_magic(style,strength,cost)
 
-			# Switch only through found weapons
 			if keys[pygame.K_q] and self.can_switch_weapon:
 				self.can_switch_weapon = False
 				self.weapon_switch_time = pygame.time.get_ticks()

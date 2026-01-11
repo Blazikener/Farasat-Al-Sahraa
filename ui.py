@@ -1,25 +1,122 @@
 import pygame
 from settings import *
+from math import sin
 
 class UI:
     def __init__(self):
+        # General setup
         self.display_surface = pygame.display.get_surface()
         self.font = pygame.font.Font(UI_FONT, UI_FONT_SIZE)
-        self.title_font = pygame.font.Font(UI_FONT, 32)
+        self.title_font = pygame.font.Font(UI_FONT, 36)
         self.insight_font = pygame.font.Font(UI_FONT, 24)
 
         # Bar setup
         self.health_bar_rect = pygame.Rect(10, 10, HEALTH_BAR_WIDTH, BAR_HEIGHT)
         self.energy_bar_rect = pygame.Rect(10, 34, ENERGY_BAR_WIDTH, BAR_HEIGHT)
 
-        # Assets
+        # Load assets
         self.weapon_graphics = [pygame.image.load(w['graphic']).convert_alpha() for w in weapon_data.values()]
         self.magic_graphics = [pygame.image.load(m['graphic']).convert_alpha() for m in magic_data.values()]
 
         # Systems
         self.message = ""; self.message_time = 0; self.message_duration = 3000 
         self.transition_alpha = 255 
+        
+        # Codex Animation
+        self.pulse_timer = 0
 
+    def draw_parchment(self, rect):
+        """Visual Polish: Draws a textured, ancient-looking paper background."""
+        # Main Paper (Parchment color)
+        pygame.draw.rect(self.display_surface, '#d4b483', rect)
+        # Weathered Edge (Darker tan)
+        pygame.draw.rect(self.display_surface, '#a68a56', rect, 8)
+        # Gold Border
+        pygame.draw.rect(self.display_surface, 'gold', rect.inflate(10, 10), 4)
+
+    def draw_divider(self, x, y, width):
+        """Visual Polish: Draws a decorative line with end caps."""
+        pygame.draw.line(self.display_surface, '#5c4033', (x, y), (x + width, y), 2)
+        pygame.draw.circle(self.display_surface, '#5c4033', (x, y), 4)
+        pygame.draw.circle(self.display_surface, '#5c4033', (x + width, y), 4)
+
+    def show_knowledge_book(self, knowledge):
+        """An aesthetically beautiful, book-themed Codex."""
+        # 1. Darken World Background
+        overlay = pygame.Surface((WIDTH, HEIGTH))
+        overlay.set_alpha(210)
+        overlay.fill('#1a100a')
+        self.display_surface.blit(overlay, (0,0))
+
+        # 2. Draw Book Panel
+        book_rect = pygame.Rect(WIDTH//4, HEIGTH//10, WIDTH//2, HEIGTH*0.8)
+        self.draw_parchment(book_rect)
+
+        # 3. Decorative Title
+        title_surf = self.title_font.render("CODEX OF FARASAT", False, '#5c4033')
+        self.display_surface.blit(title_surf, title_surf.get_rect(midtop = (WIDTH//2, book_rect.top + 40)))
+        self.draw_divider(book_rect.left + 60, book_rect.top + 90, book_rect.width - 120)
+
+        # 4. Categories
+        y = book_rect.top + 130
+        total_k = 0
+        bar_width = book_rect.width - 160
+        bar_x = book_rect.left + 80
+        
+        categories = {
+            'terrain': {'icon': 'S', 'color': '#8B4513', 'label': 'TERRAIN INSIGHT'},
+            'wildlife': {'icon': 'W', 'color': '#228B22', 'label': 'WILDLIFE INSIGHT'},
+            'survival': {'icon': 'E', 'color': '#c2810a', 'label': 'SURVIVAL INSIGHT'}
+        }
+
+        for cat_key, info in categories.items():
+            value = knowledge[cat_key]
+            total_k += value
+            
+            # Label
+            label_surf = self.font.render(f"{info['label']}: {int(value)}%", False, '#5c4033')
+            self.display_surface.blit(label_surf, (bar_x, y))
+            y += 35
+            
+            # Progress Bar Background
+            bar_bg = pygame.Rect(bar_x, y, bar_width, 22)
+            pygame.draw.rect(self.display_surface, '#3d2b1f', bar_bg)
+            
+            # Progress Bar Fill
+            prog_rect = bar_bg.copy()
+            prog_rect.width = bar_width * (value / 100)
+            pygame.draw.rect(self.display_surface, info['color'], prog_rect)
+            
+            # Border for Bar
+            pygame.draw.rect(self.display_surface, '#5c4033', bar_bg, 2)
+            y += 60
+
+        # 5. Total Knowledge (The Pulse of Insight)
+        avg_k = total_k / 3
+        self.pulse_timer += 0.1
+        pulse_val = 150 + (sin(self.pulse_timer) * 50) # Pulses the brightness
+        pulse_color = (int(pulse_val), int(pulse_val * 0.8), 0)
+
+        self.draw_divider(book_rect.left + 60, y, book_rect.width - 120)
+        y += 40
+
+        total_text = self.font.render(f"TOTAL FARASAT: {int(avg_k)}%", False, '#5c4033')
+        self.display_surface.blit(total_text, total_text.get_rect(center = (WIDTH//2, y)))
+        
+        y += 40
+        total_bar = pygame.Rect(bar_x - 20, y, bar_width + 40, 35)
+        pygame.draw.rect(self.display_surface, '#222222', total_bar)
+        
+        prog_total = total_bar.copy()
+        prog_total.width = (bar_width + 40) * (avg_k / 100)
+        pygame.draw.rect(self.display_surface, pulse_color, prog_total)
+        pygame.draw.rect(self.display_surface, 'gold', total_bar, 4)
+
+        # 6. Navigation Hint
+        close_surf = self.font.render("Press B to return to the world", False, '#5c4033')
+        self.display_surface.blit(close_surf, close_surf.get_rect(center = (WIDTH//2, book_rect.bottom - 40)))
+
+    # --- KEEP OTHER HUD ELEMENTS ---
     def show_bar(self, current, max_amount, bg_rect, color):
         pygame.draw.rect(self.display_surface, UI_BG_COLOR, bg_rect)
         ratio = current / max_amount
@@ -47,41 +144,26 @@ class UI:
             self.display_surface.blit(bg_surf, bg_rect)
             self.display_surface.blit(text_surf, text_rect)
 
+    def show_popup(self, title, lines):
+        overlay = pygame.Surface((WIDTH, HEIGTH)); overlay.set_alpha(180); overlay.fill('#000000')
+        self.display_surface.blit(overlay, (0,0))
+        width, height = 750, 450
+        panel_rect = pygame.Rect((WIDTH-width)//2, (HEIGTH-height)//2, width, height)
+        self.draw_parchment(panel_rect)
+        title_surf = self.title_font.render(title, False, '#5c4033')
+        self.display_surface.blit(title_surf, title_surf.get_rect(midtop = (WIDTH//2, panel_rect.top + 30)))
+        y = panel_rect.top + 120
+        for line in lines:
+            line_surf = self.font.render(line, False, '#3d2b1f')
+            self.display_surface.blit(line_surf, line_surf.get_rect(center = (WIDTH//2, y))); y += 40
+        hint_surf = self.font.render("Press RETURN to continue", False, '#5c4033')
+        self.display_surface.blit(hint_surf, hint_surf.get_rect(midbottom = (WIDTH//2, panel_rect.bottom - 30)))
+
     def draw_transition(self):
         if self.transition_alpha > 0:
             overlay = pygame.Surface((WIDTH, HEIGTH)); overlay.fill('black')
             overlay.set_alpha(self.transition_alpha); self.display_surface.blit(overlay, (0,0))
             self.transition_alpha -= 3
-
-    def show_tutorial(self):
-        overlay = pygame.Surface((WIDTH, HEIGTH)); overlay.set_alpha(220); overlay.fill('#0a0a0a')
-        self.display_surface.blit(overlay, (0,0))
-        title_surf = self.title_font.render("JOURNEY OF INSIGHT", False, 'gold')
-        self.display_surface.blit(title_surf, title_surf.get_rect(center = (WIDTH//2, 100)))
-        instructions = ["ARROWS: Move", "SPACE: Attack/Interact", "L-CTRL: Magic", "Q: Switch Weapon", "E: Switch Ability", "B: Codex", "-----------------", "Insight is Knowledge.", "Unlock zones by observing the world.", "-----------------", "PRESS ANY KEY TO START"]
-        y = 180
-        for line in instructions:
-            text = self.font.render(line, False, 'white')
-            self.display_surface.blit(text, text.get_rect(center = (WIDTH//2, y))); y += 35
-
-    def show_knowledge_book(self, knowledge):
-        overlay = pygame.Surface((WIDTH, HEIGTH)); overlay.set_alpha(200); overlay.fill('#1a100a'); self.display_surface.blit(overlay, (0,0))
-        book_rect = pygame.Rect(WIDTH//4, HEIGTH//8, WIDTH//2, HEIGTH*0.75)
-        pygame.draw.rect(self.display_surface, '#3d2b1f', book_rect); pygame.draw.rect(self.display_surface, 'gold', book_rect, 5)
-        title_surf = self.title_font.render("CODEX OF FARASAT", False, 'gold')
-        self.display_surface.blit(title_surf, title_surf.get_rect(midtop = (WIDTH//2, book_rect.top + 30)))
-        y = book_rect.top + 100; total_k = 0; bar_width = book_rect.width - 100; bar_x = book_rect.left + 50
-        for category, value in knowledge.items():
-            total_k += value
-            self.display_surface.blit(self.font.render(f"{category.upper()}: {int(value)}%", False, 'white'), (bar_x, y)); y += 30
-            bar_rect = pygame.Rect(bar_x, y, bar_width, 25); pygame.draw.rect(self.display_surface, UI_BG_COLOR, bar_rect)
-            progress_rect = bar_rect.copy(); progress_rect.width = bar_width * (value / 100)
-            color = '#8B4513' if category == 'terrain' else '#228B22' if category == 'wildlife' else '#FFD700'
-            pygame.draw.rect(self.display_surface, color, progress_rect); pygame.draw.rect(self.display_surface, 'white', bar_rect, 2); y += 50
-        avg_k = total_k / 3
-        total_bar = pygame.Rect(bar_x, y + 20, bar_width, 30); pygame.draw.rect(self.display_surface, UI_BG_COLOR, total_bar)
-        prog_rect = total_bar.copy(); prog_rect.width = bar_width * (avg_k / 100); pygame.draw.rect(self.display_surface, 'gold', prog_rect)
-        pygame.draw.rect(self.display_surface, 'gold', total_bar, 3)
 
     def weapon_overlay(self, weapon_index):
         bg_rect = pygame.Rect(10, 630, ITEM_BOX_SIZE, ITEM_BOX_SIZE); pygame.draw.rect(self.display_surface, UI_BG_COLOR, bg_rect)
