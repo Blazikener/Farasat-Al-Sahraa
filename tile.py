@@ -13,13 +13,39 @@ class Tile(pygame.sprite.Sprite):
 			self.rect = self.image.get_rect(topleft = pos)
 		self.hitbox = self.rect.inflate(0,y_offset)
 
+class TreasureChest(pygame.sprite.Sprite):
+	def __init__(self,pos,groups,closed_surf,open_surf):
+		super().__init__(groups)
+		self.sprite_type = 'treasure'
+		self.image_closed = closed_surf
+		self.image_open = open_surf
+		
+		self.image = self.image_closed
+		self.rect = self.image.get_rect(topleft = pos)
+		self.hitbox = self.rect.inflate(0,-10)
+		self.is_open = False
+
+	def open_chest(self):
+		if not self.is_open:
+			self.image = self.image_open
+			self.is_open = True
+			return True 
+		return False
+
+class Key(pygame.sprite.Sprite):
+	def __init__(self,pos,groups,surface):
+		super().__init__(groups)
+		self.sprite_type = 'key'
+		self.image = surface
+		self.rect = self.image.get_rect(topleft = pos)
+		self.hitbox = self.rect.inflate(0,-10)
+
 class CloudBarrier(pygame.sprite.Sprite):
 	def __init__(self, y_pos, height, groups, zone_name):
 		super().__init__(groups)
 		self.sprite_type = 'cloud'
 		self.zone_name = zone_name
 		
-		# Load and scale the cloud asset
 		try:
 			raw_cloud = pygame.image.load('../graphics/ui/cloud.png').convert_alpha()
 			self.cloud_surf = pygame.transform.scale(raw_cloud, (320, 180)) 
@@ -28,18 +54,15 @@ class CloudBarrier(pygame.sprite.Sprite):
 			self.cloud_surf.fill('white')
 			self.cloud_surf.set_alpha(150)
 
-		# Dimensions: Spans world width, dynamic height
 		world_width = 5000 
 		self.image = pygame.Surface((world_width, height), pygame.SRCALPHA)
 		
-		# Tiling: Fill surface with cloud texture
 		for x in range(0, world_width, 320):
 			for y in range(0, height, 180):
 				self.image.blit(self.cloud_surf, (x, y))
 		
-		# Positioning: Top starts at y_pos
 		self.rect = self.image.get_rect(topleft = (-500, y_pos))
-		self.hitbox = self.rect.inflate(0, 0) # Solid barrier
+		self.hitbox = self.rect.inflate(0, 0) 
 
 class Mirage(pygame.sprite.Sprite):
 	def __init__(self,pos,groups,surface):
@@ -57,12 +80,10 @@ class Mirage(pygame.sprite.Sprite):
 		m_vec = pygame.math.Vector2(self.rect.center)
 		distance = (p_vec - m_vec).magnitude()
 
-		# Shimmer effect
 		time = pygame.time.get_ticks() / 50
 		shimmer_amount = sin(time) * (3 if distance > 300 else 1.5)
 		self.rect.x = self.origin_x + shimmer_amount
 
-		# Fade out logic
 		if distance < 400:
 			alpha = max(0, min(255, (distance - 100) / 300 * 255))
 			self.alpha = int(alpha)

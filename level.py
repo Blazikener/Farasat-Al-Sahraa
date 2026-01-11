@@ -1,6 +1,6 @@
 import pygame 
 from settings import *
-from tile import Tile, Mirage, CloudBarrier
+from tile import Tile, Mirage, CloudBarrier, TreasureChest, Key
 from player import Player
 from support import *
 from random import choice, randint
@@ -17,10 +17,13 @@ class Level:
 		self.game_paused = False
 		self.show_codex = False
 
+		# Sprite Groups
 		self.visible_sprites = YSortCameraGroup()
 		self.obstacle_sprites = pygame.sprite.Group()
 		self.attack_sprites = pygame.sprite.Group()
 		self.attackable_sprites = pygame.sprite.Group()
+		self.treasure_sprites = pygame.sprite.Group() 
+		self.key_sprites = pygame.sprite.Group()
 
 		self.animation_player = AnimationPlayer()
 		self.ui = UI()
@@ -29,30 +32,17 @@ class Level:
 		self.upgrade = Upgrade(self.player)
 		self.magic_player = MagicPlayer(self.animation_player)
 
-		# --- THREE-ZONE GATING SETUP ---
-		# Map Height calculation for Terrain Knowledge percentage
+		# Progress & Gating
 		self.map_height = len(import_csv_layout('../map/map_Floor.csv')) * TILESIZE
-		self.furthest_y = self.player.rect.centery 
-		
+		self.furthest_y = self.player.rect.centery
 		self.cloud_group = pygame.sprite.Group()
 		
-		# BARRIER 1: Desert -> Mangrove Transition (Bottom Barrier)
-		# Placed at 4000Y. Unlocks when Total Knowledge >= 30%
-		self.mangrove_cloud = CloudBarrier(
-			ZONE_THRESHOLDS['mangrove'], 
-			500, # Height of the cloud bank
-			[self.visible_sprites, self.obstacle_sprites, self.cloud_group], 
-			'mangrove'
-		)
+		# Barriers
+		self.mangrove_cloud = CloudBarrier(ZONE_THRESHOLDS['mangrove'], 500, [self.visible_sprites, self.obstacle_sprites, self.cloud_group], 'mangrove')
+		self.winter_cloud = CloudBarrier(ZONE_THRESHOLDS['winter'], 800, [self.visible_sprites, self.obstacle_sprites, self.cloud_group], 'winter')
 
-		# BARRIER 2: Mangrove -> Winter Transition (Top Barrier/Bridge)
-		# Placed at 2000Y. Unlocks when Total Knowledge >= 60%
-		self.winter_cloud = CloudBarrier(
-			ZONE_THRESHOLDS['winter'], 
-			800, # Taller height to represent the bridge/mountain transition
-			[self.visible_sprites, self.obstacle_sprites, self.cloud_group], 
-			'winter'
-		)
+		# Key system
+		self.player_has_key = False 
 
 	def create_map(self):
 		layouts = {
@@ -64,7 +54,10 @@ class Level:
 		graphics = {
 			'grass': import_folder('../graphics/Grass'),
 			'objects': import_folder('../graphics/objects'),
-			'mirage': pygame.image.load('../graphics/mirage/oasis.png').convert_alpha()
+			'mirage': pygame.image.load('../graphics/mirage/oasis.png').convert_alpha(),
+			'chest_closed': pygame.image.load('../graphics/objects/chest_closed.png').convert_alpha(),
+			'chest_open': pygame.image.load('../graphics/objects/chest_open.png').convert_alpha(),
+			'key': pygame.image.load('../graphics/objects/key.png').convert_alpha()
 		}
 
 		for style,layout in layouts.items():
@@ -79,20 +72,48 @@ class Level:
 							random_grass_image = choice(graphics['grass'])
 							Tile((x,y),[self.visible_sprites,self.obstacle_sprites,self.attackable_sprites],'grass',random_grass_image)
 						if style == 'object':
+							# Check specific IDs FIRST to avoid IndexError
 							if col == '21': 
 								Mirage((x,y),[self.visible_sprites],graphics['mirage'])
+							elif col == '99': 
+								TreasureChest((x,y), [self.visible_sprites, self.obstacle_sprites, self.treasure_sprites], graphics['chest_closed'], graphics['chest_open'])
+							elif col == '100':
+								Key((x,y), [self.visible_sprites, self.key_sprites], graphics['key'])
 							else:
-								surf = graphics['objects'][int(col)]
-								Tile((x,y),[self.visible_sprites,self.obstacle_sprites],'object',surf)
+								# Only try to index graphics['objects'] if it's within range
+								obj_index = int(col)
+								if obj_index < len(graphics['objects']):
+									surf = graphics['objects'][obj_index]
+									Tile((x,y),[self.visible_sprites,self.obstacle_sprites],'object',surf)
 						if style == 'entities':
 							if col == '394':
 								self.player = Player((x,y),[self.visible_sprites],self.obstacle_sprites,self.create_attack,self.destroy_attack,self.create_magic)
 							else:
-								if col == '390': monster_name = 'bamboo'
-								elif col == '391': monster_name = 'spirit'
-								elif col == '392': monster_name ='raccoon'
-								else: monster_name = 'squid'
+								monster_name = 'bamboo' if col == '390' else 'spirit' if col == '391' else 'raccoon' if col == '392' else 'squid'
 								Enemy(monster_name,(x,y),[self.visible_sprites,self.attackable_sprites],self.obstacle_sprites,self.damage_player,self.trigger_death_particles,self.add_exp,self.animation_player)
+
+	def interaction_logic(self):
+		"""Handles key collection and chest interaction."""
+		# 1. Key Collection
+		for key_sprite in self.key_sprites:
+			if key_sprite.hitbox.colliderect(self.player.hitbox):
+				key_sprite.kill()
+				self.player_has_key = True
+
+		# 2. Chest Interaction
+		keys_pressed = pygame.key.get_pressed()
+		for sprite in self.treasure_sprites:
+			if sprite.hitbox.colliderect(self.player.hitbox.inflate(20,20)):
+				if keys_pressed[pygame.K_SPACE]:
+					if self.player_has_key:
+						if sprite.open_chest():
+							# Unlock all knowledge categories
+							self.player.knowledge['terrain'] = 100
+							self.player.knowledge['survival'] = 100
+							self.player.knowledge['wildlife'] = 100
+					else:
+						# Print to console for now; you could add a UI popup
+						print("The chest is locked. You need a key!")
 
 	def create_attack(self):
 		self.current_attack = Weapon(self.player,[self.visible_sprites,self.attack_sprites])
@@ -134,7 +155,6 @@ class Level:
 						self.player.knowledge['survival'] = min(100, self.player.knowledge['survival'] + 5)
 
 	def update_terrain_knowledge(self):
-		"""Tracks physical exploration of the map zones."""
 		current_y = self.player.rect.centery
 		if current_y < self.furthest_y:
 			self.furthest_y = current_y
@@ -163,14 +183,12 @@ class Level:
 		self.show_codex = not self.show_codex
 
 	def gating_logic(self, total_k):
-		"""Unlocks the cloud barriers as player knowledge grows."""
 		if total_k >= UNLOCK_REQUIREMENTS['mangrove'] and self.mangrove_cloud.alive():
 			self.mangrove_cloud.kill()
 		if total_k >= UNLOCK_REQUIREMENTS['winter'] and self.winter_cloud.alive():
 			self.winter_cloud.kill()
 
 	def run(self):
-		# Calculate current progress for the gating and UI
 		total_knowledge = sum(self.player.knowledge.values()) / len(self.player.knowledge)
 		self.visible_sprites.custom_draw(self.player)
 		
@@ -180,6 +198,7 @@ class Level:
 			self.player_attack_logic()
 			self.study_enemy_logic()
 			self.update_terrain_knowledge()
+			self.interaction_logic() # Key pickup and Chest check
 			self.gating_logic(total_knowledge)
 
 		self.ui.display(self.player, total_knowledge)
@@ -215,4 +234,67 @@ class YSortCameraGroup(pygame.sprite.Group):
 	def enemy_update(self,player):
 		enemy_sprites = [sprite for sprite in self.sprites() if hasattr(sprite,'sprite_type') and sprite.sprite_type == 'enemy']
 		for enemy in enemy_sprites:
-			enemy.enemy_update(player)
+			enemy.enemy_update(player)                     
+			               
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
