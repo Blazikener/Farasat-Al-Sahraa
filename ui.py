@@ -26,7 +26,7 @@ class UI:
         pygame.draw.rect(self.display_surface, UI_BORDER_COLOR, bg_rect, 3)
 
     def show_knowledge_book(self, knowledge):
-        """Draws the Codex overlay with progress bars and zone hints."""
+        """Draws the Codex overlay with knowledge progress bars."""
         # Dim the background with an overlay
         overlay = pygame.Surface((WIDTH, HEIGTH))
         overlay.set_alpha(200)
@@ -73,17 +73,9 @@ class UI:
             pygame.draw.rect(self.display_surface, 'white', bar_rect, 2)
             y += 50
 
-        # Calculate Average Knowledge for Zone Tracking
+        # Calculate Average Knowledge
         avg_k = total_k / 3
         
-        # --- Zone Indicator ---
-        current_zone = "Scorched Desert"
-        if avg_k >= UNLOCK_REQUIREMENTS['winter']: current_zone = "Winter Desert"
-        elif avg_k >= UNLOCK_REQUIREMENTS['mangrove']: current_zone = "Mangrove Forest"
-        
-        zone_surf = self.font.render(f"LOCATION: {current_zone}", False, '#ADD8E6')
-        self.display_surface.blit(zone_surf, zone_surf.get_rect(center = (WIDTH//2, book_rect.bottom - 130)))
-
         # Total Knowledge Bar
         total_bar_rect = pygame.Rect(bar_x, y + 20, bar_width, bar_height + 5)
         pygame.draw.rect(self.display_surface, UI_BG_COLOR, total_bar_rect)
@@ -92,11 +84,11 @@ class UI:
         pygame.draw.rect(self.display_surface, 'gold', total_progress_rect)
         pygame.draw.rect(self.display_surface, 'gold', total_bar_rect, 3)
 
-        # Progression Requirement Hints
+        # Progression Requirement Hints (Kept for guidance)
         if avg_k < UNLOCK_REQUIREMENTS['mangrove']:
-            hint = f"Unlock Mangrove: {int(avg_k)}% / {UNLOCK_REQUIREMENTS['mangrove']}%"
+            hint = f"Unlock Next Zone: {int(avg_k)}% / {UNLOCK_REQUIREMENTS['mangrove']}%"
         elif avg_k < UNLOCK_REQUIREMENTS['winter']:
-            hint = f"Unlock Winter: {int(avg_k)}% / {UNLOCK_REQUIREMENTS['winter']}%"
+            hint = f"Unlock Next Zone: {int(avg_k)}% / {UNLOCK_REQUIREMENTS['winter']}%"
         else:
             hint = "Peak Knowledge Reached!"
         
@@ -108,23 +100,19 @@ class UI:
         self.display_surface.blit(close_hint, close_hint.get_rect(center = (WIDTH//2, book_rect.bottom - 40)))
 
     def weapon_overlay(self, weapon_index, knowledge_score, weapon_name):
-        """Displays selected weapon or a '?' if locked."""
+        """Displays selected weapon icon."""
         bg_rect = pygame.Rect(10, 630, ITEM_BOX_SIZE, ITEM_BOX_SIZE)
         pygame.draw.rect(self.display_surface, UI_BG_COLOR, bg_rect)
         
-        # Check if weapon is unlocked based on total knowledge
-        if knowledge_score >= WEAPON_UNLOCKS.get(weapon_name, 0):
-            weapon_surf = self.weapon_graphics[weapon_index]
-            self.display_surface.blit(weapon_surf, weapon_surf.get_rect(center = bg_rect.center))
-        else:
-            lock_surf = self.font.render("?", False, 'gray')
-            self.display_surface.blit(lock_surf, lock_surf.get_rect(center = bg_rect.center))
+        # Weapons are now unlocked by looting, so we show the graphic if owned
+        weapon_surf = self.weapon_graphics[weapon_index]
+        self.display_surface.blit(weapon_surf, weapon_surf.get_rect(center = bg_rect.center))
 
         pygame.draw.rect(self.display_surface, UI_BORDER_COLOR, bg_rect, 3)
         self.display_surface.blit(self.font.render("Q", False, 'gold'), (bg_rect.left + 5, bg_rect.top + 5))
 
     def magic_overlay(self, magic_index):
-        """Displays selected magic overlay with selection hint."""
+        """Displays selected magic overlay."""
         bg_rect = pygame.Rect(100, 630, ITEM_BOX_SIZE, ITEM_BOX_SIZE)
         pygame.draw.rect(self.display_surface, UI_BG_COLOR, bg_rect)
         

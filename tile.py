@@ -1,5 +1,6 @@
 import pygame 
 from settings import *
+from random import randint
 
 class Tile(pygame.sprite.Sprite):
 	def __init__(self,pos,groups,sprite_type,surface = pygame.Surface((TILESIZE,TILESIZE))):
@@ -14,11 +15,12 @@ class Tile(pygame.sprite.Sprite):
 		self.hitbox = self.rect.inflate(0,y_offset)
 
 class TreasureChest(pygame.sprite.Sprite):
-	def __init__(self,pos,groups,closed_surf,open_surf):
+	def __init__(self,pos,groups,closed_surf,open_surf,weapon_name = None):
 		super().__init__(groups)
 		self.sprite_type = 'treasure'
 		self.image_closed = closed_surf
 		self.image_open = open_surf
+		self.weapon_contents = weapon_name 
 		
 		self.image = self.image_closed
 		self.rect = self.image.get_rect(topleft = pos)
@@ -31,6 +33,24 @@ class TreasureChest(pygame.sprite.Sprite):
 			self.is_open = True
 			return True 
 		return False
+
+class DroppedWeapon(pygame.sprite.Sprite):
+	def __init__(self,pos,groups,weapon_name,surface):
+		super().__init__(groups)
+		self.sprite_type = 'dropped_weapon'
+		self.weapon_name = weapon_name
+		self.image = surface
+		
+		self.rect = self.image.get_rect(center = pos)
+		self.pos = pygame.math.Vector2(pos)
+		self.target_pos = pygame.math.Vector2(pos) + pygame.math.Vector2(randint(-40,40), randint(30,70))
+		self.hitbox = self.rect.inflate(0,-10)
+
+	def update(self):
+		if (self.target_pos - self.pos).magnitude() > 2:
+			direction = (self.target_pos - self.pos).normalize()
+			self.pos += direction * 3
+			self.rect.center = self.pos
 
 class Key(pygame.sprite.Sprite):
 	def __init__(self,pos,groups,surface):
@@ -62,7 +82,7 @@ class CloudBarrier(pygame.sprite.Sprite):
 				self.image.blit(self.cloud_surf, (x, y))
 		
 		self.rect = self.image.get_rect(topleft = (-500, y_pos))
-		self.hitbox = self.rect.inflate(0, 0) 
+		self.hitbox = self.rect.inflate(0, 0)
 
 class Mirage(pygame.sprite.Sprite):
 	def __init__(self,pos,groups,surface):
@@ -71,20 +91,17 @@ class Mirage(pygame.sprite.Sprite):
 		self.image = surface.copy() 
 		self.rect = self.image.get_rect(topleft = pos)
 		self.hitbox = self.rect.inflate(0, -10)
-		self.origin_x = self.rect.x 
 		self.alpha = 255
 
 	def update_visibility(self, player):
-		from math import sin
+		# Calculate distance between player and the oasis
 		p_vec = pygame.math.Vector2(player.rect.center)
 		m_vec = pygame.math.Vector2(self.rect.center)
 		distance = (p_vec - m_vec).magnitude()
 
-		time = pygame.time.get_ticks() / 50
-		shimmer_amount = sin(time) * (3 if distance > 300 else 1.5)
-		self.rect.x = self.origin_x + shimmer_amount
-
+		# FADING LOGIC: Keeps it as a mirage that disappears when close
 		if distance < 400:
+			# Gradually decrease alpha as the player gets closer
 			alpha = max(0, min(255, (distance - 100) / 300 * 255))
 			self.alpha = int(alpha)
 		else:

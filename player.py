@@ -21,18 +21,15 @@ class Player(Entity):
 		self.obstacle_sprites = obstacle_sprites
 
 		# Farasat Knowledge System
-		self.knowledge = {
-			'terrain': 0,
-			'wildlife': 0,
-			'survival': 0
-		}
+		self.knowledge = {'terrain': 0, 'wildlife': 0, 'survival': 0}
 		self.exp = 0 
 
-		# weapon
+		# Weapon System (Restricted to what you find)
+		self.unlocked_weapons = ['sword'] 
 		self.create_attack = create_attack
 		self.destroy_attack = destroy_attack
 		self.weapon_index = 0
-		self.weapon = list(weapon_data.keys())[self.weapon_index]
+		self.weapon = self.unlocked_weapons[self.weapon_index]
 		self.can_switch_weapon = True
 		self.weapon_switch_time = None
 		self.switch_duration_cooldown = 200
@@ -57,7 +54,6 @@ class Player(Entity):
 		self.hurt_time = None
 		self.invulnerability_duration = 500
 
-		# import a sound
 		self.weapon_attack_sound = pygame.mixer.Sound('../audio/sword.wav')
 		self.weapon_attack_sound.set_volume(0.4)
 
@@ -71,11 +67,15 @@ class Player(Entity):
 			full_path = character_path + animation
 			self.animations[animation] = import_folder(full_path)
 
+	def add_weapon(self, weapon_name):
+		# Adds found weapon to arsenal
+		if weapon_name not in self.unlocked_weapons:
+			self.unlocked_weapons.append(weapon_name)
+
 	def input(self):
 		if not self.attacking:
 			keys = pygame.key.get_pressed()
 
-			# movement input
 			if keys[pygame.K_UP]:
 				self.direction.y = -1
 				self.status = 'up'
@@ -94,14 +94,12 @@ class Player(Entity):
 			else:
 				self.direction.x = 0
 
-			# attack input 
 			if keys[pygame.K_SPACE]:
 				self.attacking = True
 				self.attack_time = pygame.time.get_ticks()
 				self.create_attack()
 				self.weapon_attack_sound.play()
 
-			# magic input 
 			if keys[pygame.K_LCTRL]:
 				self.attacking = True
 				self.attack_time = pygame.time.get_ticks()
@@ -110,29 +108,17 @@ class Player(Entity):
 				cost = list(magic_data.values())[self.magic_index]['cost']
 				self.create_magic(style,strength,cost)
 
-			# Weapon Switching
+			# Switch only through found weapons
 			if keys[pygame.K_q] and self.can_switch_weapon:
 				self.can_switch_weapon = False
 				self.weapon_switch_time = pygame.time.get_ticks()
-				
-				total_k = sum(self.knowledge.values()) / len(self.knowledge)
-				temp_index = (self.weapon_index + 1) % len(list(weapon_data.keys()))
-				temp_weapon = list(weapon_data.keys())[temp_index]
-				
-				if total_k >= WEAPON_UNLOCKS.get(temp_weapon, 0):
-					self.weapon_index = temp_index
-					self.weapon = temp_weapon
+				self.weapon_index = (self.weapon_index + 1) % len(self.unlocked_weapons)
+				self.weapon = self.unlocked_weapons[self.weapon_index]
 
-			# Magic Switching - Fixed Syntax Error here
 			if keys[pygame.K_e] and self.can_switch_magic:
 				self.can_switch_magic = False
 				self.magic_switch_time = pygame.time.get_ticks()
-				
-				if self.magic_index < len(list(magic_data.keys())) - 1:
-					self.magic_index += 1
-				else:
-					self.magic_index = 0
-
+				self.magic_index = (self.magic_index + 1) % len(list(magic_data.keys()))
 				self.magic = list(magic_data.keys())[self.magic_index]
 
 	def get_status(self):

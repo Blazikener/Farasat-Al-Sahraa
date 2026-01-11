@@ -1,9 +1,9 @@
 import pygame 
 from settings import *
-from tile import Tile, Mirage, CloudBarrier, TreasureChest, Key
+from tile import Tile, Mirage, CloudBarrier, TreasureChest, Key, DroppedWeapon
 from player import Player
 from support import *
-from random import choice, randint
+from random import choice, randint, random # Added random for spawn filtering
 from weapon import Weapon
 from ui import UI
 from enemy import Enemy
@@ -24,6 +24,7 @@ class Level:
 		self.attackable_sprites = pygame.sprite.Group()
 		self.treasure_sprites = pygame.sprite.Group() 
 		self.key_sprites = pygame.sprite.Group()
+		self.dropped_weapon_sprites = pygame.sprite.Group()
 
 		self.animation_player = AnimationPlayer()
 		self.ui = UI()
@@ -41,7 +42,6 @@ class Level:
 		self.mangrove_cloud = CloudBarrier(ZONE_THRESHOLDS['mangrove'], 500, [self.visible_sprites, self.obstacle_sprites, self.cloud_group], 'mangrove')
 		self.winter_cloud = CloudBarrier(ZONE_THRESHOLDS['winter'], 800, [self.visible_sprites, self.obstacle_sprites, self.cloud_group], 'winter')
 
-		# Key system
 		self.player_has_key = False 
 
 	def create_map(self):
@@ -51,6 +51,9 @@ class Level:
 			'object': import_csv_layout('../map/map_Objects.csv'),
 			'entities': import_csv_layout('../map/map_Entities.csv')
 		}
+		
+		self.weapon_graphics = {name: pygame.image.load(data['graphic']).convert_alpha() for name, data in weapon_data.items()}
+		
 		graphics = {
 			'grass': import_folder('../graphics/Grass'),
 			'objects': import_folder('../graphics/objects'),
@@ -59,6 +62,9 @@ class Level:
 			'chest_open': pygame.image.load('../graphics/objects/chest_open.png').convert_alpha(),
 			'key': pygame.image.load('../graphics/objects/key.png').convert_alpha()
 		}
+
+		# CONFIGURATION: Set the enemy spawn rate (0.4 = 40% of enemies from CSV will spawn)
+		enemy_spawn_rate = 0.29 
 
 		for style,layout in layouts.items():
 			for row_index,row in enumerate(layout):
@@ -72,15 +78,13 @@ class Level:
 							random_grass_image = choice(graphics['grass'])
 							Tile((x,y),[self.visible_sprites,self.obstacle_sprites,self.attackable_sprites],'grass',random_grass_image)
 						if style == 'object':
-							# Check specific IDs FIRST to avoid IndexError
 							if col == '21': 
 								Mirage((x,y),[self.visible_sprites],graphics['mirage'])
 							elif col == '99': 
-								TreasureChest((x,y), [self.visible_sprites, self.obstacle_sprites, self.treasure_sprites], graphics['chest_closed'], graphics['chest_open'])
+								TreasureChest((x,y), [self.visible_sprites, self.obstacle_sprites, self.treasure_sprites], graphics['chest_closed'], graphics['chest_open'], 'lance')
 							elif col == '100':
 								Key((x,y), [self.visible_sprites, self.key_sprites], graphics['key'])
 							else:
-								# Only try to index graphics['objects'] if it's within range
 								obj_index = int(col)
 								if obj_index < len(graphics['objects']):
 									surf = graphics['objects'][obj_index]
@@ -89,31 +93,34 @@ class Level:
 							if col == '394':
 								self.player = Player((x,y),[self.visible_sprites],self.obstacle_sprites,self.create_attack,self.destroy_attack,self.create_magic)
 							else:
-								monster_name = 'bamboo' if col == '390' else 'spirit' if col == '391' else 'raccoon' if col == '392' else 'squid'
-								Enemy(monster_name,(x,y),[self.visible_sprites,self.attackable_sprites],self.obstacle_sprites,self.damage_player,self.trigger_death_particles,self.add_exp,self.animation_player)
+								# ENEMY REDUCTION LOGIC: Only spawn if the random check passes
+								if random() < enemy_spawn_rate:
+									monster_name = 'bamboo' if col == '390' else 'spirit' if col == '391' else 'raccoon' if col == '392' else 'squid'
+									Enemy(monster_name,(x,y),[self.visible_sprites,self.attackable_sprites],self.obstacle_sprites,self.damage_player,self.trigger_death_particles,self.add_exp,self.animation_player)
 
 	def interaction_logic(self):
-		"""Handles key collection and chest interaction."""
-		# 1. Key Collection
 		for key_sprite in self.key_sprites:
 			if key_sprite.hitbox.colliderect(self.player.hitbox):
 				key_sprite.kill()
 				self.player_has_key = True
 
-		# 2. Chest Interaction
+		for dropped_weapon in self.dropped_weapon_sprites:
+			if dropped_weapon.hitbox.colliderect(self.player.hitbox.inflate(10,10)):
+				self.player.add_weapon(dropped_weapon.weapon_name)
+				dropped_weapon.kill()
+
 		keys_pressed = pygame.key.get_pressed()
 		for sprite in self.treasure_sprites:
-			if sprite.hitbox.colliderect(self.player.hitbox.inflate(20,20)):
+			if sprite.hitbox.colliderect(self.player.hitbox.inflate(30,30)):
 				if keys_pressed[pygame.K_SPACE]:
 					if self.player_has_key:
 						if sprite.open_chest():
-							# Unlock all knowledge categories
+							if sprite.weapon_contents:
+								weapon_surf = self.weapon_graphics[sprite.weapon_contents]
+								DroppedWeapon(sprite.rect.center, [self.visible_sprites, self.dropped_weapon_sprites], sprite.weapon_contents, weapon_surf)
 							self.player.knowledge['terrain'] = 100
 							self.player.knowledge['survival'] = 100
 							self.player.knowledge['wildlife'] = 100
-					else:
-						# Print to console for now; you could add a UI popup
-						print("The chest is locked. You need a key!")
 
 	def create_attack(self):
 		self.current_attack = Weapon(self.player,[self.visible_sprites,self.attack_sprites])
@@ -198,7 +205,7 @@ class Level:
 			self.player_attack_logic()
 			self.study_enemy_logic()
 			self.update_terrain_knowledge()
-			self.interaction_logic() # Key pickup and Chest check
+			self.interaction_logic() 
 			self.gating_logic(total_knowledge)
 
 		self.ui.display(self.player, total_knowledge)
@@ -234,67 +241,4 @@ class YSortCameraGroup(pygame.sprite.Group):
 	def enemy_update(self,player):
 		enemy_sprites = [sprite for sprite in self.sprites() if hasattr(sprite,'sprite_type') and sprite.sprite_type == 'enemy']
 		for enemy in enemy_sprites:
-			enemy.enemy_update(player)                     
-			               
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+			enemy.enemy_update(player)
